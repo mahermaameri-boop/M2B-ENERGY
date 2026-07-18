@@ -32,9 +32,14 @@ pour M2B ENERGY (Belgique). Interface entièrement en français, montants en eur
 8. **Sorties & bons de sortie** — réservations (prévisionnel) + sorties avec **bon de sortie PDF + QR code** ; **création client/chantier inline**.
 9. **Retours** — 3 types : chantier (réintégration), défectueux/SAV (garantie), annulation de commande (avoir).
 10. **Clients & chantiers** — clients, chantiers, saisie du CA et de la sous-traitance (masqués pour le collaborateur).
-11. **Marges (admin)** — marge par chantier et par client.
-12. **Traçabilité** — historique complet d'un n° de série (article ↔ client ↔ fournisseur ↔ facture).
-13. **Rôles & accès (admin)** — invitations et gestion des 2 rôles.
+11. **Historique** — chantiers **réalisés** : date, client, matériel posé, fournisseur(s) et (admin) prix d'installation, CA, marge.
+12. **Marges (admin)** — marge par chantier et par client.
+13. **Traçabilité** — historique complet d'un n° de série (article ↔ client ↔ fournisseur ↔ facture).
+14. **Rôles & accès (admin)** — invitations et gestion des 2 rôles.
+
+> **Prix fournisseurs = commandes réellement passées.** L'historique des prix, le meilleur
+> prix, l'ordre de réassort et la valeur du stock se calculent à partir des lignes de
+> commande (prix saisis par l'Admin), pas d'une saisie manuelle séparée.
 
 ---
 
@@ -82,10 +87,12 @@ Migrations SQL dans `supabase/migrations/` :
 | `0003_rls.sql`            | Row Level Security + création automatique du profil à l'inscription |
 | `0004_seed.sql`           | Données de démonstration |
 | `0005_alignement_2roles.sql` | Passage à 2 rôles, `articles.compose`, table `besoins_appro` (À commander), RLS ajustée |
+| `0006_prix_categories_historique.sql` | Prix depuis les commandes, catégories fermées (5 valeurs), statut chantier `planifie`/`realise`, coût sous-traitance nullable (relance), vues de marge |
 
 Pour une **nouvelle installation**, exécutez simplement `supabase/schema_complet.sql`
-(il regroupe 0001 → 0005). Pour **mettre à jour une base déjà installée** avec les
-migrations 0001–0004, exécutez uniquement `0005_alignement_2roles.sql`.
+(il regroupe 0001 → 0006). Pour **mettre à jour une base déjà installée**, exécutez la
+ou les migrations manquantes dans l'ordre (par ex. `0006_prix_categories_historique.sql`
+si vous êtes déjà à 0005).
 
 **Principe clé :** le stock courant n'est jamais un champ modifiable. Il est **calculé
 à partir du journal `mouvements_stock`** (source de vérité) via la vue `vue_stock_actuel`.

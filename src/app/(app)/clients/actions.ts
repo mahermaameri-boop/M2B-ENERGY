@@ -42,14 +42,14 @@ export async function creerChantier(formData: FormData) {
     client_id: String(formData.get("client_id")),
     libelle: String(formData.get("libelle") || "").trim(),
     date_prevue: String(formData.get("date_prevue") || "").trim() || null,
-    statut: String(formData.get("statut") || "en_cours"),
+    statut: String(formData.get("statut") || "planifie"),
   };
 
   // Financier réservé à l'Admin : jamais écrit pour un collaborateur,
   // même via une requête forgée (contrôle côté serveur).
   if (estAdmin) {
     donnees.ca = Number(formData.get("ca") || 0);
-    donnees.cout_sous_traitance = Number(formData.get("cout_sous_traitance") || 0);
+    donnees.cout_sous_traitance = formData.get("cout_sous_traitance") ? Number(formData.get("cout_sous_traitance")) : null;
   }
 
   await supabase.from("chantiers").insert(donnees);
@@ -65,14 +65,14 @@ export async function modifierChantier(formData: FormData) {
   const donnees: Record<string, unknown> = {
     libelle: String(formData.get("libelle") || "").trim(),
     date_prevue: String(formData.get("date_prevue") || "").trim() || null,
-    statut: String(formData.get("statut") || "en_cours"),
+    statut: String(formData.get("statut") || "planifie"),
   };
 
   // Financier réservé à l'Admin : jamais écrit pour un collaborateur,
   // même via une requête forgée (contrôle côté serveur).
   if (estAdmin) {
     donnees.ca = Number(formData.get("ca") || 0);
-    donnees.cout_sous_traitance = Number(formData.get("cout_sous_traitance") || 0);
+    donnees.cout_sous_traitance = formData.get("cout_sous_traitance") ? Number(formData.get("cout_sous_traitance")) : null;
   }
 
   await supabase.from("chantiers").update(donnees).eq("id", id);

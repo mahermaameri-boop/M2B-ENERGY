@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
 import { euro, nombre, dateFr, dateISO } from "@/lib/format";
 import {
-  creerFournisseur, modifierFournisseur, supprimerFournisseur, ajouterPrix,
+  creerFournisseur, modifierFournisseur, supprimerFournisseur,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -111,30 +111,12 @@ export default async function FournisseursPage() {
       </div>
 
       <Carte titre="Prix & ordre d'appel au réassort">
-        <details className="mb-4">
-          <summary className="btn-secondaire w-fit cursor-pointer">+ Enregistrer un prix</summary>
-          <form action={ajouterPrix} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
-            <div className="sm:col-span-2">
-              <label className="etiquette">Article</label>
-              <select name="article_id" required className="champ">
-                {(articles ?? []).map((a) => (
-                  <option key={a.id} value={a.id}>{a.reference} — {a.designation}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="etiquette">Fournisseur</label>
-              <select name="fournisseur_id" required className="champ">
-                {(fournisseurs ?? []).map((f) => (
-                  <option key={f.id} value={f.id}>{f.nom}</option>
-                ))}
-              </select>
-            </div>
-            <div><label className="etiquette">Prix (€)</label><input name="prix" type="number" step="0.01" min="0" required className="champ" /></div>
-            <div><label className="etiquette">Date</label><input name="date" type="date" defaultValue={dateISO()} className="champ" /></div>
-            <div><button className="btn-primaire">Ajouter</button></div>
-          </form>
-        </details>
+        <p className="mb-4 rounded-md border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
+          L'historique des prix, le meilleur prix et l'ordre de réassort sont calculés
+          automatiquement à partir des <strong>commandes fournisseurs réellement passées</strong>
+          (prix saisis par l'Admin sur les lignes de commande). Il n'y a pas de saisie de prix
+          manuelle : passez une commande pour alimenter l'historique.
+        </p>
 
         <div className="space-y-4">
           {(articles ?? []).map((a) => {

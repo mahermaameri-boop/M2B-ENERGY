@@ -34,13 +34,3 @@ export async function supprimerFournisseur(formData: FormData) {
   revalidatePath("/fournisseurs");
 }
 
-export async function ajouterPrix(formData: FormData) {
-  const supabase = createClient();
-  await supabase.from("prix_fournisseur").insert({
-    article_id: String(formData.get("article_id")),
-    fournisseur_id: String(formData.get("fournisseur_id")),
-    prix: Number(formData.get("prix") || 0),
-    date: String(formData.get("date") || new Date().toISOString().slice(0, 10)),
-  });
-  revalidatePath("/fournisseurs");
-}

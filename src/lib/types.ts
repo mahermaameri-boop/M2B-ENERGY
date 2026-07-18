@@ -14,6 +14,11 @@ export type TypeMouvement =
 export interface Profil { id: string; nom: string; role: Role; cree_le: string }
 
 export type StatutBesoin = "a_commander" | "commande" | "recu";
+export type StatutChantier = "planifie" | "realise";
+
+// Catégories d'article — liste fermée (5 valeurs)
+export const CATEGORIES_ARTICLE = ["R/R Ext", "R/R Int", "R/O", "BT", "Accessoires"] as const;
+export type CategorieArticle = (typeof CATEGORIES_ARTICLE)[number];
 
 export interface Fournisseur {
   id: string; nom: string; email: string | null; telephone: string | null;
@@ -41,7 +46,7 @@ export interface Client {
 
 export interface Chantier {
   id: string; client_id: string; libelle: string; date_prevue: string | null;
-  statut: string; ca: number; cout_sous_traitance: number;
+  statut: StatutChantier; ca: number; cout_sous_traitance: number | null;
 }
 
 export interface NumeroSerie {
@@ -61,6 +66,11 @@ export const LABEL_STATUT_BESOIN: Record<StatutBesoin, string> = {
   a_commander: "À commander",
   commande: "Commandé",
   recu: "Reçu",
+};
+
+export const LABEL_STATUT_CHANTIER: Record<StatutChantier, string> = {
+  planifie: "Planifié",
+  realise: "Réalisé",
 };
 
 export const LABEL_STATUT_COMMANDE: Record<StatutCommande, string> = {

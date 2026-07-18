@@ -41,13 +41,37 @@ export async function creerBesoin(formData: FormData) {
   }
   if (lignes.length === 0) lignes = [{ article_id, quantite }];
 
-  await supabase.from("besoins_appro").insert(
-    lignes.map((l) => ({
-      chantier_id, article_id: l.article_id, quantite: l.quantite,
-      date_besoin, statut: "a_commander", cree_par: uid, notes,
-    })),
-  );
+  // Disponible = stock actuel − réservations déjà en cours (par article)
+  const artIds = lignes.map((l) => l.article_id);
+  const [{ data: stock }, { data: resa }] = await Promise.all([
+    supabase.from("vue_stock_actuel").select("article_id, stock").in("article_id", artIds),
+    supabase.from("reservations").select("article_id, quantite").eq("statut", "reserve").in("article_id", artIds),
+  ]);
+  const stockMap = new Map(((stock as any[]) ?? []).map((s) => [s.article_id, Number(s.stock)]));
+  const resaMap = new Map<string, number>();
+  for (const r of (resa as any[]) ?? []) {
+    resaMap.set(r.article_id, (resaMap.get(r.article_id) ?? 0) + Number(r.quantite));
+  }
+
+  const besoins: any[] = [];
+  const reservations: any[] = [];
+  for (const l of lignes) {
+    const dispo = Math.max((stockMap.get(l.article_id) ?? 0) - (resaMap.get(l.article_id) ?? 0), 0);
+    const aReserver = Math.min(l.quantite, dispo);        // composant en stock → réservé
+    const manque = l.quantite - aReserver;                // composant manquant → à commander
+    if (aReserver > 0) {
+      reservations.push({ chantier_id, article_id: l.article_id, quantite: aReserver, date_prevue: date_besoin, statut: "reserve" });
+    }
+    if (manque > 0) {
+      besoins.push({ chantier_id, article_id: l.article_id, quantite: manque, date_besoin, statut: "a_commander", cree_par: uid, notes });
+    }
+  }
+
+  if (reservations.length > 0) await supabase.from("reservations").insert(reservations);
+  if (besoins.length > 0) await supabase.from("besoins_appro").insert(besoins);
+
   revalidatePath("/a-commander");
+  revalidatePath("/sorties");
   revalidatePath("/stock");
 }
 

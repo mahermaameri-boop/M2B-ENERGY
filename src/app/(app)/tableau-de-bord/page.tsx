@@ -1,7 +1,8 @@
 import { requireProfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, CarteStat, Vide, Badge } from "@/components/ui";
-import { euro, nombre, pourcentage, dateISO } from "@/lib/format";
+import { euro, nombre, pourcentage, dateISO, dateFr } from "@/lib/format";
+import { RelanceSousTraitance, type ChantierACompleter } from "./relance";
 
 export const dynamic = "force-dynamic";
 
@@ -61,14 +62,26 @@ export default async function TableauDeBord() {
   let caTotal = 0;
   let margeTotal = 0;
 
+  let aCompleter: ChantierACompleter[] = [];
+
   if (estAdmin) {
-    const { data } = await supabase
-      .from("vue_marge_client")
-      .select("client_id, nom, ca, marge, marge_pct")
-      .order("marge", { ascending: false });
+    const [{ data }, { data: chantiersData }] = await Promise.all([
+      supabase.from("vue_marge_client")
+        .select("client_id, nom, ca, marge, marge_pct")
+        .order("marge", { ascending: false }),
+      // Chantiers passés (date < aujourd'hui) dont le coût sous-traitance n'est pas saisi
+      supabase.from("chantiers")
+        .select("id, libelle, date_prevue, clients(nom)")
+        .is("cout_sous_traitance", null)
+        .lt("date_prevue", aujourdhui)
+        .order("date_prevue"),
+    ]);
     margeClient = (data as MargeClient[]) ?? [];
     caTotal = margeClient.reduce((s, c) => s + Number(c.ca), 0);
     margeTotal = margeClient.reduce((s, c) => s + Number(c.marge), 0);
+    aCompleter = ((chantiersData as any[]) ?? []).map((c) => ({
+      id: c.id, libelle: c.libelle, client: c.clients?.nom ?? "—", date_prevue: c.date_prevue,
+    }));
   }
 
   const margePct = caTotal > 0 ? (margeTotal / caTotal) * 100 : null;
@@ -79,6 +92,27 @@ export default async function TableauDeBord() {
         titre="Tableau de bord"
         description={`Bienvenue, ${profil.nom || "collaborateur"}.`}
       />
+
+      {estAdmin && <RelanceSousTraitance chantiers={aCompleter} />}
+
+      {estAdmin && aCompleter.length > 0 && (
+        <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 p-4">
+          <div className="mb-2 text-sm font-semibold text-amber-800">
+            À compléter — coût de sous-traitance ({aCompleter.length})
+          </div>
+          <ul className="space-y-1 text-sm text-amber-900">
+            {aCompleter.map((c) => (
+              <li key={c.id} className="flex justify-between">
+                <span>{c.libelle} — {c.client}</span>
+                <span className="text-amber-600">{dateFr(c.date_prevue)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-amber-700">
+            Renseignez le coût du sous-traitant (fenêtre ci-dessus ou module Clients &amp; chantiers) pour compléter la marge.
+          </p>
+        </div>
+      )}
 
       {/* Cartes opérationnelles — visibles par tous */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

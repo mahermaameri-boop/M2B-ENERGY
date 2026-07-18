@@ -25,6 +25,7 @@ const ITEMS: Item[] = [
   { href: "/sorties",         libelle: "Sorties & bons",           roles: TOUS },
   { href: "/retours",         libelle: "Retours",                  roles: TOUS },
   { href: "/clients",         libelle: "Clients & chantiers",      roles: TOUS },
+  { href: "/historique",      libelle: "Historique",               roles: TOUS },
   { href: "/marges",          libelle: "Marges",                   roles: ADMIN },
   { href: "/tracabilite",     libelle: "Traçabilité",              roles: TOUS },
   { href: "/acces",           libelle: "Rôles & accès",            roles: ADMIN },

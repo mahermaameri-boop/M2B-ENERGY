@@ -155,7 +155,11 @@ export async function effectuerSortie(formData: FormData) {
     await marquerReservationSortie(supabase, chantier_id, l.article_id);
   }
 
+  // Le chantier passe en « réalisé » (installation faite → apparaît dans l'Historique)
+  await supabase.from("chantiers").update({ statut: "realise" }).eq("id", chantier_id);
+
   revalidatePath("/sorties");
   revalidatePath("/stock");
+  revalidatePath("/historique");
   redirect(`/api/bon-de-sortie/${bon.id}`);
 }

@@ -11,21 +11,18 @@ import {
 export const dynamic = "force-dynamic";
 
 const STATUTS: { valeur: string; label: string }[] = [
-  { valeur: "en_cours", label: "En cours" },
-  { valeur: "termine", label: "Terminé" },
-  { valeur: "annule", label: "Annulé" },
+  { valeur: "planifie", label: "Planifié" },
+  { valeur: "realise", label: "Réalisé" },
 ];
 
 const LABEL_STATUT: Record<string, string> = {
-  en_cours: "En cours",
-  termine: "Terminé",
-  annule: "Annulé",
+  planifie: "Planifié",
+  realise: "Réalisé",
 };
 
 const COULEUR_STATUT: Record<string, "vert" | "rouge" | "orange" | "gris" | "bleu"> = {
-  en_cours: "bleu",
-  termine: "vert",
-  annule: "rouge",
+  planifie: "bleu",
+  realise: "vert",
 };
 
 export default async function ClientsPage() {
@@ -173,7 +170,7 @@ export default async function ClientsPage() {
                                       {voitCa && (
                                         <>
                                           <input name="ca" type="number" step="0.01" min="0" defaultValue={ch.ca} className="champ" placeholder="CA (€)" />
-                                          <input name="cout_sous_traitance" type="number" step="0.01" min="0" defaultValue={ch.cout_sous_traitance} className="champ" placeholder="Coût sous-traitance (€)" />
+                                          <input name="cout_sous_traitance" type="number" step="0.01" min="0" defaultValue={ch.cout_sous_traitance ?? ""} className="champ" placeholder="Coût sous-traitance (€)" />
                                         </>
                                       )}
                                       <button className="btn-primaire">Mettre à jour</button>

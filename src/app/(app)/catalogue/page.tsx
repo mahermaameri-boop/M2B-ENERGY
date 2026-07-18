@@ -10,7 +10,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const CATEGORIES = ["pac", "split", "fenetre", "porte", "accessoire"] as const;
+import { CATEGORIES_ARTICLE } from "@/lib/types";
+const CATEGORIES = CATEGORIES_ARTICLE;
 
 const capitaliser = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
