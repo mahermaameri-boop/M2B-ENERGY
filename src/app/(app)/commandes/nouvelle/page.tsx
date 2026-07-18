@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/auth";
+import { requireProfil, peutVoirPrix } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage } from "@/components/ui";
 import { dateISO } from "@/lib/format";
@@ -7,7 +7,8 @@ import { NouvelleCommandeForm } from "../formulaire";
 export const dynamic = "force-dynamic";
 
 export default async function NouvelleCommandePage() {
-  await requireRole(["admin", "bureau"]);
+  const profil = await requireProfil();
+  const voitPrix = peutVoirPrix(profil.role);
   const supabase = createClient();
 
   const annee = new Date().getFullYear();
@@ -49,6 +50,7 @@ export default async function NouvelleCommandePage() {
         prixMap={prixMap}
         numeroPropose={numeroPropose}
         dateJour={dateISO()}
+        voitPrix={voitPrix}
       />
     </>
   );

@@ -21,7 +21,7 @@ interface Reassort {
 const SEUIL_DELAI = 7; // drapeau prix/délai (Étape 2), affiché à titre indicatif
 
 export default async function FournisseursPage() {
-  await requireRole(["admin", "bureau"]);
+  await requireRole(["admin"]);
   const supabase = createClient();
 
   const [{ data: fournisseurs }, { data: articles }, { data: reassort }, { data: prevRupture }] =

@@ -15,6 +15,7 @@ export function NouvelleCommandeForm({
   prixMap,
   numeroPropose,
   dateJour,
+  voitPrix,
 }: {
   fournisseurs: { id: string; nom: string }[];
   articles: ArticleMin[];
@@ -23,6 +24,7 @@ export function NouvelleCommandeForm({
   prixMap: Record<string, number>;
   numeroPropose: string;
   dateJour: string;
+  voitPrix: boolean;
 }) {
   const [lignes, setLignes] = useState<Ligne[]>([{ article_id: "", quantite: 1, prix_unitaire: 0 }]);
 
@@ -114,8 +116,8 @@ export function NouvelleCommandeForm({
               <tr>
                 <th className="w-1/2">Article</th>
                 <th className="text-right">Quantité</th>
-                <th className="text-right">Prix unitaire (€)</th>
-                <th className="text-right">Sous-total</th>
+                {voitPrix && <th className="text-right">Prix unitaire (€)</th>}
+                {voitPrix && <th className="text-right">Sous-total</th>}
                 <th></th>
               </tr>
             </thead>
@@ -153,15 +155,17 @@ export function NouvelleCommandeForm({
                         className="champ w-24 text-right"
                       />
                     </td>
-                    <td className="text-right">
-                      <input
-                        type="number" min="0" step="0.01"
-                        value={l.prix_unitaire}
-                        onChange={(e) => majLigne(i, { prix_unitaire: Number(e.target.value) })}
-                        className="champ w-28 text-right"
-                      />
-                    </td>
-                    <td className="text-right">{euro((l.quantite || 0) * (l.prix_unitaire || 0))}</td>
+                    {voitPrix && (
+                      <td className="text-right">
+                        <input
+                          type="number" min="0" step="0.01"
+                          value={l.prix_unitaire}
+                          onChange={(e) => majLigne(i, { prix_unitaire: Number(e.target.value) })}
+                          className="champ w-28 text-right"
+                        />
+                      </td>
+                    )}
+                    {voitPrix && <td className="text-right">{euro((l.quantite || 0) * (l.prix_unitaire || 0))}</td>}
                     <td className="text-right">
                       <button type="button" onClick={() => retirerLigne(i)} className="text-xs text-red-600 hover:underline">
                         Retirer
@@ -171,13 +175,15 @@ export function NouvelleCommandeForm({
                 );
               })}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={3} className="text-right font-semibold">Total commande</td>
-                <td className="text-right font-semibold">{euro(total)}</td>
-                <td></td>
-              </tr>
-            </tfoot>
+            {voitPrix && (
+              <tfoot>
+                <tr>
+                  <td colSpan={3} className="text-right font-semibold">Total commande</td>
+                  <td className="text-right font-semibold">{euro(total)}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
         <button type="button" onClick={ajouterLigne} className="btn-secondaire mt-3">

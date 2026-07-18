@@ -12,11 +12,11 @@ async function assertAdmin() {
   if (profil?.role !== "admin") throw new Error("Accès refusé");
 }
 
-const ROLES: Role[] = ["admin", "operationnel", "bureau"];
+const ROLES: Role[] = ["admin", "collaborateur"];
 
 function lireRole(formData: FormData): Role {
   const r = String(formData.get("role") || "");
-  return (ROLES as string[]).includes(r) ? (r as Role) : "operationnel";
+  return (ROLES as string[]).includes(r) ? (r as Role) : "collaborateur";
 }
 
 export async function changerRole(formData: FormData) {

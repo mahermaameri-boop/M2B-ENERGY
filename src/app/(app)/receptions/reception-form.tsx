@@ -76,9 +76,10 @@ export function ReceptionForm({
       <div className="carte p-4">
         <div className="mb-3 text-sm font-semibold text-gray-700">Articles à réceptionner</div>
         <div className="space-y-4">
-          {lignes.map((l) => {
+          {lignes.map((l, i) => {
             const e = etat[l.id];
             const reste = Math.max(l.quantite - l.quantite_recue, 0);
+            const premierSerialise = lignes.findIndex((x) => x.serialise) === i;
             return (
               <div key={l.id} className="rounded-md border border-gray-100 p-3">
                 <div className="mb-2 flex items-center justify-between">
@@ -95,7 +96,7 @@ export function ReceptionForm({
                     <label className="etiquette">
                       N° de série (scan douchette ou saisie) — {nombre(e.series.length)} saisi(s)
                     </label>
-                    <ScanSeries series={e.series} onChange={(s) => maj(l.id, { series: s })} />
+                    <ScanSeries series={e.series} onChange={(s) => maj(l.id, { series: s })} autoFocus={premierSerialise} />
                   </div>
                 ) : (
                   <div className="w-40">

@@ -1,6 +1,6 @@
 // Types partagés (modèle de données M2B ENERGY)
 
-export type Role = "admin" | "operationnel" | "bureau";
+export type Role = "admin" | "collaborateur";
 
 export type StatutCommande =
   | "brouillon" | "en_transit" | "livree_partiel" | "livree" | "annulee";
@@ -13,6 +13,8 @@ export type TypeMouvement =
 
 export interface Profil { id: string; nom: string; role: Role; cree_le: string }
 
+export type StatutBesoin = "a_commander" | "commande" | "recu";
+
 export interface Fournisseur {
   id: string; nom: string; email: string | null; telephone: string | null;
   delai_livraison_jours: number; notes: string | null;
@@ -20,7 +22,7 @@ export interface Fournisseur {
 
 export interface Article {
   id: string; reference: string; designation: string; categorie: string;
-  unite: string; serialise: boolean; seuil_manuel: number; actif: boolean;
+  unite: string; serialise: boolean; compose: boolean; seuil_manuel: number; actif: boolean;
 }
 
 export interface Commande {
@@ -52,8 +54,13 @@ export interface NumeroSerie {
 // Libellés d'affichage
 export const LABEL_ROLE: Record<Role, string> = {
   admin: "Admin",
-  operationnel: "Opérationnel",
-  bureau: "Bureau / achats",
+  collaborateur: "Collaborateur",
+};
+
+export const LABEL_STATUT_BESOIN: Record<StatutBesoin, string> = {
+  a_commander: "À commander",
+  commande: "Commandé",
+  recu: "Reçu",
 };
 
 export const LABEL_STATUT_COMMANDE: Record<StatutCommande, string> = {

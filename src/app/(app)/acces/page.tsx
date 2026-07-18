@@ -9,7 +9,7 @@ import { changerRole, inviterCollaborateur } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-const ROLES: Role[] = ["admin", "operationnel", "bureau"];
+const ROLES: Role[] = ["admin", "collaborateur"];
 
 export default async function AccesPage() {
   await requireRole(["admin"]);
@@ -53,8 +53,8 @@ export default async function AccesPage() {
 
       <div className="mb-6 rounded-md border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
         Le collaborateur invité reçoit un e-mail contenant un lien d'invitation
-        pour définir son mot de passe. Le premier compte administrateur doit être
-        créé manuellement dans Supabase (voir le README).
+        pour définir son mot de passe. Le tout premier compte inscrit devient
+        automatiquement Admin ; les suivants sont Collaborateur par défaut.
       </div>
 
       <Carte titre="Collaborateurs">
@@ -76,7 +76,7 @@ export default async function AccesPage() {
             </div>
             <div>
               <label className="etiquette">Rôle</label>
-              <select name="role" className="champ" defaultValue="operationnel">
+              <select name="role" className="champ" defaultValue="collaborateur">
                 {ROLES.map((r) => (
                   <option key={r} value={r}>{LABEL_ROLE[r]}</option>
                 ))}

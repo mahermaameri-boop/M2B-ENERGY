@@ -31,7 +31,7 @@ export default async function StockPage({
   const supabase = createClient();
 
   const [{ data: articles }, { data: prev }, { data: prix }] = await Promise.all([
-    supabase.from("articles").select("*").eq("actif", true).order("categorie").order("designation"),
+    supabase.from("articles").select("*").eq("actif", true).eq("compose", false).order("categorie").order("designation"),
     supabase.rpc("fn_stock_previsionnel", { d_cible: dateCible }),
     voitPrix
       ? supabase.from("vue_dernier_prix").select("article_id, dernier_prix")

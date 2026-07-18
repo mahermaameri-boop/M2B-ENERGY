@@ -49,7 +49,7 @@ export function SortieForm({
 
       <div>
         <label className="etiquette">Numéros de série (scan douchette ou saisie) — {series.length} article(s)</label>
-        <ScanSeries series={series} onChange={setSeries} placeholder="Scanner le n° de série sur le matériel, puis Entrée" />
+        <ScanSeries series={series} onChange={setSeries} autoFocus placeholder="Scanner le n° de série sur le matériel, puis Entrée" />
       </div>
 
       <div>

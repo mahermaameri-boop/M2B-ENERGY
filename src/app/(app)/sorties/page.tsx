@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
 import { nombre, dateFr, dateISO } from "@/lib/format";
 import { SortieForm } from "./sortie-form";
-import { creerReservation, annulerReservation } from "./actions";
+import { creerReservation, annulerReservation, creerClientChantierRapide } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +36,31 @@ export default async function SortiesPage() {
 
       <div className="mb-6">
         <Carte titre="Effectuer une sortie">
+          <details className="mb-4">
+            <summary className="btn-secondaire w-fit cursor-pointer">+ Nouveau client / chantier</summary>
+            <form action={creerClientChantierRapide} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="etiquette">Nom du client</label>
+                <input name="client_nom" required className="champ" />
+              </div>
+              <div>
+                <label className="etiquette">Adresse</label>
+                <input name="client_adresse" className="champ" />
+              </div>
+              <div>
+                <label className="etiquette">Référence du chantier</label>
+                <input name="chantier_libelle" required className="champ" />
+              </div>
+              <div>
+                <label className="etiquette">Date prévue</label>
+                <input name="chantier_date" type="date" defaultValue={dateISO()} className="champ" />
+              </div>
+              <div className="sm:col-span-2">
+                <button className="btn-primaire w-fit">Créer le client et le chantier</button>
+              </div>
+            </form>
+          </details>
+
           {chantiersIn.length === 0 ? (
             <Vide message="Créez d'abord un client et un chantier (module Clients & CA)." />
           ) : (

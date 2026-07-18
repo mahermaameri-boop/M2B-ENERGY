@@ -24,44 +24,50 @@ pour M2B ENERGY (Belgique). Interface entièrement en français, montants en eur
 
 1. **Tableau de bord** — synthèse CA / marge / alertes stock (version « sans argent » pour l'opérationnel).
 2. **Stock** — stock actuel, valorisation, **prévisionnel avec sélecteur de date**, états OK / Bas / Rupture.
-3. **Catalogue & compositions** — articles et nomenclatures (BOM) des produits finis.
-4. **Commandes** — commandes fournisseurs multi-produits + **décomposition d'un produit fini** (ne commander que ce qui manque).
-5. **Réceptions** — réception totale/partielle (facture d'achat + n° de série au scan) et **entrée manuelle**.
-6. **Fournisseurs & prix** — fiches, historique des prix, **meilleur prix** et **ordre d'appel au réassort**.
-7. **Sorties & bons de sortie** — réservations (prévisionnel) + sorties avec **bon de sortie PDF + QR code**.
-8. **Retours** — 3 types : chantier (réintégration), défectueux/SAV (garantie), annulation de commande (avoir).
-9. **Clients & CA** — clients, chantiers, saisie du chiffre d'affaires et de la sous-traitance.
-10. **Marges (admin)** — marge par chantier et par client.
-11. **Traçabilité SAV** — historique complet d'un n° de série (article ↔ client ↔ fournisseur ↔ facture).
-12. **Rôles & accès (admin)** — invitations et gestion des rôles.
+3. **Catalogue & compositions** — articles (dont produits **composés** non stockés) et nomenclatures (BOM).
+4. **À commander** — passerelle **planning → achats** : encodage des besoins (décomposition des produits composés + croisement stock), puis bouton vert **« Marquer comme commandé »** créant la commande des manquants.
+5. **Commandes** — commandes fournisseurs multi-produits + **décomposition d'un produit fini** (montants masqués pour le collaborateur).
+6. **Réceptions** — « à réceptionner » **et** « réceptionnées / passées » ; réception (facture + n° de série au scan, focus auto) et **entrée manuelle**.
+7. **Fournisseurs & prix (admin)** — fiches, historique des prix, **meilleur prix** et **ordre d'appel au réassort**.
+8. **Sorties & bons de sortie** — réservations (prévisionnel) + sorties avec **bon de sortie PDF + QR code** ; **création client/chantier inline**.
+9. **Retours** — 3 types : chantier (réintégration), défectueux/SAV (garantie), annulation de commande (avoir).
+10. **Clients & chantiers** — clients, chantiers, saisie du CA et de la sous-traitance (masqués pour le collaborateur).
+11. **Marges (admin)** — marge par chantier et par client.
+12. **Traçabilité** — historique complet d'un n° de série (article ↔ client ↔ fournisseur ↔ facture).
+13. **Rôles & accès (admin)** — invitations et gestion des 2 rôles.
 
 ---
 
-## 3. Rôles & permissions
+## 3. Rôles & permissions (2 rôles)
 
-| Rôle          | Accès |
-|---------------|-------|
-| **admin**         | Tout, **y compris les marges et le CA**. Gère les comptes/rôles. (Plusieurs admins possibles.) |
-| **operationnel**  | Stock, réceptions, sorties + bons, retours, traçabilité. **Ne voit ni CA ni marges** (« version sans argent »). |
-| **bureau**        | Commandes, fournisseurs & prix d'achat, clients & **CA**. **Ne voit pas les marges**. |
+| Rôle             | Accès |
+|------------------|-------|
+| **admin**         | Accès complet, **y compris tout le financier** (prix d'achat, valeur du stock, prix fournisseurs, CA, marges, avoirs). Gère les comptes. (Plusieurs admins possibles.) |
+| **collaborateur** | Tout l'opérationnel (tableau de bord, stock en quantités, à commander, commandes, réceptions, sorties & bons, retours, clients & chantiers, traçabilité) **sans aucune donnée financière**. Pas d'accès aux modules Marges, Fournisseurs & prix, Rôles. |
 
-Les permissions sont appliquées **à deux niveaux** :
+**Règle unique :** tout champ monétaire (prix, valeur, montant, CA, marge, avoir) est
+visible **uniquement par l'Admin**. Le collaborateur voit les mêmes écrans, champs
+monétaires masqués. **Le premier compte inscrit devient automatiquement Admin** ; les
+suivants sont Collaborateur par défaut.
 
-- **RLS (base de données)** — policies PostgreSQL (`supabase/migrations/0003_rls.sql`).
-  Les tables/vues sensibles sont protégées par des fonctions de rôle
-  (`est_admin()`, `peut_voir_ca()`, `peut_voir_prix()`, `peut_voir_marge()`) :
-  `prix_fournisseur`, `vue_dernier_prix`, `vue_reassort`, `vue_marge_chantier`,
-  `vue_marge_client` ne renvoient rien aux rôles non autorisés.
-- **Interface** — onglets masqués et colonnes monétaires non requêtées selon le rôle.
+Les permissions sont appliquées **côté serveur** (jamais uniquement dans l'UI) :
 
-> **Note d'implémentation.** PostgREST n'expose qu'un seul rôle SQL (`authenticated`)
-> pour tous les utilisateurs connectés ; la confidentialité *au niveau colonne* de
-> quelques champs monétaires partagés (`commande_lignes.prix_unitaire`,
-> `chantiers.ca`, `mouvements_stock.prix_achat`) est donc assurée par la couche
-> applicative (les Server Components ne sélectionnent pas ces colonnes pour un rôle
-> non autorisé), tandis que les données purement monétaires (prix fournisseur, vues
-> de marge) sont isolées au niveau ligne par RLS. Un durcissement colonne par colonne
-> est prévu en Étape 2.
+- **RLS (base de données)** — les tables/vues purement financières
+  (`prix_fournisseur`, `vue_dernier_prix`, `vue_reassort`, `vue_marge_chantier`,
+  `vue_marge_client`) sont gardées par les fonctions de rôle (`est_admin()`,
+  `peut_voir_prix()`, `peut_voir_marge()`) → elles ne renvoient rien au collaborateur.
+- **Logique serveur (API / Server Components)** — pour les colonnes monétaires
+  présentes dans des tables opérationnelles partagées (`commande_lignes.prix_unitaire`,
+  `chantiers.ca`, `chantiers.cout_sous_traitance`), ces colonnes ne sont **pas
+  requêtées** pour un collaborateur (requêtes tenant compte du rôle), et les Server
+  Actions n'écrivent jamais ces champs pour un non-Admin. Ce filtrage s'exécute sur le
+  serveur, pas dans le navigateur.
+
+> **Note.** PostgREST n'expose qu'un seul rôle SQL (`authenticated`) pour tous les
+> utilisateurs connectés : la distinction Admin/Collaborateur passe donc par les
+> fonctions de rôle (RLS) pour les données financières isolables par ligne, et par la
+> couche serveur pour les colonnes monétaires des tables partagées. Un durcissement
+> colonne par colonne (vues dédiées) reste possible en Étape 2.
 
 ---
 
@@ -75,6 +81,11 @@ Migrations SQL dans `supabase/migrations/` :
 | `0002_views_functions.sql`| Fonctions de rôle, vues métier, calculs (stock, prévisionnel, réassort, marges) |
 | `0003_rls.sql`            | Row Level Security + création automatique du profil à l'inscription |
 | `0004_seed.sql`           | Données de démonstration |
+| `0005_alignement_2roles.sql` | Passage à 2 rôles, `articles.compose`, table `besoins_appro` (À commander), RLS ajustée |
+
+Pour une **nouvelle installation**, exécutez simplement `supabase/schema_complet.sql`
+(il regroupe 0001 → 0005). Pour **mettre à jour une base déjà installée** avec les
+migrations 0001–0004, exécutez uniquement `0005_alignement_2roles.sql`.
 
 **Principe clé :** le stock courant n'est jamais un champ modifiable. Il est **calculé
 à partir du journal `mouvements_stock`** (source de vérité) via la vue `vue_stock_actuel`.
@@ -139,18 +150,19 @@ Ouvrez <http://localhost:3000>.
 
 ## 6. Créer le premier compte admin
 
-Les nouveaux comptes reçoivent par défaut le rôle **operationnel**. Pour le tout premier
-administrateur :
+**Le tout premier compte inscrit devient automatiquement Admin** (les suivants sont
+Collaborateur par défaut).
 
-1. **Supabase → Authentication → Users → Add user** : créez un utilisateur
-   (e-mail + mot de passe, « Auto Confirm User » coché).
-2. **Supabase → SQL Editor**, promouvez-le admin :
-   ```sql
-   update profils set role = 'admin'
-   where id = (select id from auth.users where email = 'votre.email@m2benergy.be');
-   ```
-3. Connectez-vous à l'application. Vous pouvez ensuite **inviter les collaborateurs**
-   et gérer leurs rôles depuis l'onglet **Rôles & accès**.
+1. **Supabase → Authentication → Users → Add user** : créez le premier utilisateur
+   (e-mail + mot de passe, « Auto Confirm User » coché). Il sera Admin.
+2. Connectez-vous, puis **invitez les collaborateurs** et gérez leurs rôles depuis
+   l'onglet **Rôles & accès**.
+
+Pour passer manuellement un compte en Admin (ex. deuxième administrateur) :
+```sql
+update profils set role = 'admin'
+where id = (select id from auth.users where email = 'autre.admin@m2benergy.be');
+```
 
 > L'invitation de collaborateurs (onglet **Rôles & accès**) nécessite que
 > `SUPABASE_SERVICE_ROLE_KEY` soit configurée. Le collaborateur reçoit un e-mail avec

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { requireProfil, peutVoirPrix } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide, LienBouton } from "@/components/ui";
 import { euro, dateFr } from "@/lib/format";
@@ -16,12 +16,17 @@ const COULEUR_STATUT: Record<StatutCommande, "gris" | "bleu" | "orange" | "vert"
 };
 
 export default async function CommandesPage() {
-  await requireRole(["admin", "bureau"]);
+  const profil = await requireProfil();
+  const voitPrix = peutVoirPrix(profil.role);
   const supabase = createClient();
 
+  // Masquage financier côté serveur : le prix n'est requêté que pour l'Admin.
+  const selectCmd = voitPrix
+    ? "id, numero, date_commande, date_livraison_prevue, statut, fournisseurs(nom), commande_lignes(quantite, prix_unitaire)"
+    : "id, numero, date_commande, date_livraison_prevue, statut, fournisseurs(nom)";
   const { data: commandes } = await supabase
     .from("commandes")
-    .select("id, numero, date_commande, date_livraison_prevue, statut, fournisseurs(nom), commande_lignes(quantite, prix_unitaire)")
+    .select(selectCmd)
     .order("date_commande", { ascending: false });
 
   return (
@@ -43,7 +48,7 @@ export default async function CommandesPage() {
                   <th>Fournisseur</th>
                   <th>Date</th>
                   <th>Livraison prévue</th>
-                  <th className="text-right">Montant</th>
+                  {voitPrix && <th className="text-right">Montant</th>}
                   <th>Statut</th>
                 </tr>
               </thead>
@@ -59,7 +64,7 @@ export default async function CommandesPage() {
                       <td>{c.fournisseurs?.nom ?? "—"}</td>
                       <td>{dateFr(c.date_commande)}</td>
                       <td>{dateFr(c.date_livraison_prevue)}</td>
-                      <td className="text-right">{euro(montant)}</td>
+                      {voitPrix && <td className="text-right">{euro(montant)}</td>}
                       <td><Badge couleur={COULEUR_STATUT[c.statut as StatutCommande]}>{LABEL_STATUT_COMMANDE[c.statut as StatutCommande]}</Badge></td>
                     </tr>
                   );

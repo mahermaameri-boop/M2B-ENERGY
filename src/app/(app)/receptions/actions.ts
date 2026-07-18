@@ -102,7 +102,13 @@ export async function receptionnerCommande(formData: FormData) {
     .update({ statut: totalRecu ? "livree" : partiel ? "livree_partiel" : "en_transit" })
     .eq("id", commande_id);
 
+  // Passerelle « À commander » : les besoins liés à cette commande passent en reçu
+  if (totalRecu) {
+    await supabase.from("besoins_appro").update({ statut: "recu" }).eq("commande_id", commande_id);
+  }
+
   revalidatePath("/receptions");
+  revalidatePath("/a-commander");
   revalidatePath("/stock");
   revalidatePath(`/commandes/${commande_id}`);
   redirect(`/commandes/${commande_id}`);
@@ -111,9 +117,12 @@ export async function receptionnerCommande(formData: FormData) {
 export async function entreeManuelle(formData: FormData) {
   const supabase = createClient();
   const uid = await userId(supabase);
+  // Le prix d'achat est financier : capturé uniquement si l'utilisateur est Admin.
+  const { data: profil } = await supabase.from("profils").select("role").eq("id", uid ?? "").maybeSingle();
+  const estAdmin = profil?.role === "admin";
   const article_id = String(formData.get("article_id"));
   const quantite = Number(formData.get("quantite") || 0);
-  const prix_achat = Number(formData.get("prix_achat") || 0);
+  const prix_achat = estAdmin ? Number(formData.get("prix_achat") || 0) : 0;
   const fournisseur_id = String(formData.get("fournisseur_id") || "") || null;
   const numero_facture = String(formData.get("numero_facture") || "").trim();
   const motif = String(formData.get("motif") || "").trim() || "Entrée manuelle";

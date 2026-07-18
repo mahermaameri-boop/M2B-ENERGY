@@ -1,6 +1,6 @@
-import { requireRole } from "@/lib/auth";
+import { requireProfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
+import { Carte, Badge, Vide, EnTetePage } from "@/components/ui";
 import { euro, dateFr } from "@/lib/format";
 import type { Client, Chantier } from "@/lib/types";
 import {
@@ -29,12 +29,19 @@ const COULEUR_STATUT: Record<string, "vert" | "rouge" | "orange" | "gris" | "ble
 };
 
 export default async function ClientsPage() {
-  await requireRole(["admin", "bureau"]);
+  const profil = await requireProfil();
+  const voitCa = profil.role === "admin";
   const supabase = createClient();
+
+  // Sélection dépendante du rôle : les colonnes financières (ca,
+  // cout_sous_traitance) ne sont même pas récupérées pour un non-admin.
+  const champsChantier = voitCa
+    ? "id, client_id, libelle, date_prevue, statut, ca, cout_sous_traitance"
+    : "id, client_id, libelle, date_prevue, statut";
 
   const [{ data: clients }, { data: chantiers }] = await Promise.all([
     supabase.from("clients").select("*").order("nom"),
-    supabase.from("chantiers").select("*").order("date_prevue"),
+    supabase.from("chantiers").select(champsChantier).order("date_prevue"),
   ]);
 
   const parClient = new Map<string, Chantier[]>();
@@ -49,8 +56,12 @@ export default async function ClientsPage() {
   return (
     <>
       <EnTetePage
-        titre="Clients & CA"
-        description="Fiches clients, chantiers et chiffre d'affaires saisi par chantier."
+        titre={voitCa ? "Clients & CA" : "Clients"}
+        description={
+          voitCa
+            ? "Fiches clients, chantiers et chiffre d'affaires saisi par chantier."
+            : "Fiches clients et chantiers."
+        }
       />
 
       <Carte titre="Clients">
@@ -78,7 +89,7 @@ export default async function ClientsPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-base font-semibold text-gray-900">{client.nom}</span>
-                        <Badge couleur="bleu">CA {euro(totalCa)}</Badge>
+                        {voitCa && <Badge couleur="bleu">CA {euro(totalCa)}</Badge>}
                       </div>
                       <div className="mt-1 space-y-0.5 text-sm text-gray-500">
                         {client.contact && <div>{client.contact}</div>}
@@ -116,8 +127,12 @@ export default async function ClientsPage() {
                             {STATUTS.map((s) => <option key={s.valeur} value={s.valeur}>{s.label}</option>)}
                           </select>
                         </div>
-                        <div><label className="etiquette">Chiffre d&apos;affaires (€)</label><input name="ca" type="number" step="0.01" min="0" defaultValue={0} className="champ" /></div>
-                        <div><label className="etiquette">Coût sous-traitance (€)</label><input name="cout_sous_traitance" type="number" step="0.01" min="0" defaultValue={0} className="champ" /></div>
+                        {voitCa && (
+                          <>
+                            <div><label className="etiquette">Chiffre d&apos;affaires (€)</label><input name="ca" type="number" step="0.01" min="0" defaultValue={0} className="champ" /></div>
+                            <div><label className="etiquette">Coût sous-traitance (€)</label><input name="cout_sous_traitance" type="number" step="0.01" min="0" defaultValue={0} className="champ" /></div>
+                          </>
+                        )}
                         <div className="sm:col-span-2"><button className="btn-primaire">Enregistrer</button></div>
                       </form>
                     </details>
@@ -132,8 +147,8 @@ export default async function ClientsPage() {
                               <th>Référence</th>
                               <th>Date prévue</th>
                               <th>Statut</th>
-                              <th className="text-right">CA</th>
-                              <th className="text-right">Coût sous-traitance</th>
+                              {voitCa && <th className="text-right">CA</th>}
+                              {voitCa && <th className="text-right">Coût sous-traitance</th>}
                               <th></th>
                             </tr>
                           </thead>
@@ -143,8 +158,8 @@ export default async function ClientsPage() {
                                 <td className="font-medium">{ch.libelle}</td>
                                 <td className="text-gray-500">{dateFr(ch.date_prevue)}</td>
                                 <td><Badge couleur={COULEUR_STATUT[ch.statut] ?? "gris"}>{LABEL_STATUT[ch.statut] ?? ch.statut}</Badge></td>
-                                <td className="text-right font-semibold">{euro(ch.ca)}</td>
-                                <td className="text-right">{euro(ch.cout_sous_traitance)}</td>
+                                {voitCa && <td className="text-right font-semibold">{euro(ch.ca)}</td>}
+                                {voitCa && <td className="text-right">{euro(ch.cout_sous_traitance)}</td>}
                                 <td className="text-right">
                                   <details>
                                     <summary className="cursor-pointer text-xs text-brand-600">Modifier</summary>
@@ -155,8 +170,12 @@ export default async function ClientsPage() {
                                       <select name="statut" className="champ" defaultValue={ch.statut}>
                                         {STATUTS.map((s) => <option key={s.valeur} value={s.valeur}>{s.label}</option>)}
                                       </select>
-                                      <input name="ca" type="number" step="0.01" min="0" defaultValue={ch.ca} className="champ" placeholder="CA (€)" />
-                                      <input name="cout_sous_traitance" type="number" step="0.01" min="0" defaultValue={ch.cout_sous_traitance} className="champ" placeholder="Coût sous-traitance (€)" />
+                                      {voitCa && (
+                                        <>
+                                          <input name="ca" type="number" step="0.01" min="0" defaultValue={ch.ca} className="champ" placeholder="CA (€)" />
+                                          <input name="cout_sous_traitance" type="number" step="0.01" min="0" defaultValue={ch.cout_sous_traitance} className="champ" placeholder="Coût sous-traitance (€)" />
+                                        </>
+                                      )}
                                       <button className="btn-primaire">Mettre à jour</button>
                                     </form>
                                     <form action={supprimerChantier} className="mt-2">

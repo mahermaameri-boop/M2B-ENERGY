@@ -27,7 +27,7 @@ interface LigneComposition {
 }
 
 export default async function CataloguePage() {
-  await requireRole(["admin", "bureau"]);
+  await requireRole(["admin", "collaborateur"]);
   const supabase = createClient();
 
   const [{ data: articles }, { data: compositions }, { data: lignes }] = await Promise.all([
@@ -83,6 +83,9 @@ export default async function CataloguePage() {
                   <input name="serialise" type="checkbox" /> Sérialisé
                 </label>
                 <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input name="compose" type="checkbox" /> Composé (non stocké)
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
                   <input name="actif" type="checkbox" defaultChecked /> Actif
                 </label>
               </div>
@@ -112,6 +115,7 @@ export default async function CataloguePage() {
                       <td>
                         <div className="flex flex-wrap gap-1">
                           {a.serialise && <Badge couleur="bleu">Sérialisé</Badge>}
+                          {a.compose && <Badge couleur="orange">Composé</Badge>}
                           {a.actif ? <Badge couleur="vert">Actif</Badge> : <Badge couleur="gris">Inactif</Badge>}
                         </div>
                       </td>
@@ -131,6 +135,9 @@ export default async function CataloguePage() {
                             <input name="seuil_manuel" type="number" min="0" defaultValue={a.seuil_manuel} className="champ" />
                             <label className="flex items-center gap-2 text-sm text-gray-700">
                               <input name="serialise" type="checkbox" defaultChecked={a.serialise} /> Sérialisé
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                              <input name="compose" type="checkbox" defaultChecked={a.compose} /> Composé (non stocké)
                             </label>
                             <label className="flex items-center gap-2 text-sm text-gray-700">
                               <input name="actif" type="checkbox" defaultChecked={a.actif} /> Actif

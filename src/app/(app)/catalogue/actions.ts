@@ -11,6 +11,7 @@ export async function creerArticle(formData: FormData) {
     categorie: String(formData.get("categorie") || "accessoire"),
     unite: String(formData.get("unite") || "").trim() || "pièce",
     serialise: formData.get("serialise") === "on",
+    compose: formData.get("compose") === "on",
     seuil_manuel: Math.max(0, Number(formData.get("seuil_manuel") || 0)),
     actif: formData.get("actif") === "on",
   });
@@ -26,6 +27,7 @@ export async function modifierArticle(formData: FormData) {
     categorie: String(formData.get("categorie") || "accessoire"),
     unite: String(formData.get("unite") || "").trim() || "pièce",
     serialise: formData.get("serialise") === "on",
+    compose: formData.get("compose") === "on",
     seuil_manuel: Math.max(0, Number(formData.get("seuil_manuel") || 0)),
     actif: formData.get("actif") === "on",
   }).eq("id", id);

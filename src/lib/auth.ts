@@ -29,6 +29,8 @@ export async function requireRole(roles: Role[]): Promise<Profil> {
   return profil;
 }
 
-export const peutVoirCa = (r: Role) => r === "admin" || r === "bureau";
-export const peutVoirPrix = (r: Role) => r === "admin" || r === "bureau";
+// Modèle à 2 rôles : tout le financier est réservé à l'Admin.
+export const peutVoirCa = (r: Role) => r === "admin";
+export const peutVoirPrix = (r: Role) => r === "admin";
 export const peutVoirMarge = (r: Role) => r === "admin";
+export const estAdmin = (r: Role) => r === "admin";

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth";
+import { requireProfil, peutVoirPrix } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
 import { euro, nombre, dateFr } from "@/lib/format";
@@ -10,7 +10,8 @@ import { changerStatutCommande, supprimerCommande } from "../actions";
 export const dynamic = "force-dynamic";
 
 export default async function CommandeDetail({ params }: { params: { id: string } }) {
-  await requireRole(["admin", "bureau"]);
+  const profil = await requireProfil();
+  const voitPrix = peutVoirPrix(profil.role);
   const supabase = createClient();
 
   const { data: commande } = await supabase
@@ -42,7 +43,7 @@ export default async function CommandeDetail({ params }: { params: { id: string 
           <dl className="space-y-1 text-sm">
             <div className="flex justify-between"><dt className="text-gray-500">Livraison prévue</dt><dd>{dateFr(commande.date_livraison_prevue)}</dd></div>
             <div className="flex justify-between"><dt className="text-gray-500">Statut</dt><dd>{LABEL_STATUT_COMMANDE[commande.statut as StatutCommande]}</dd></div>
-            <div className="flex justify-between"><dt className="text-gray-500">Montant total</dt><dd className="font-semibold">{euro(total)}</dd></div>
+            {voitPrix && <div className="flex justify-between"><dt className="text-gray-500">Montant total</dt><dd className="font-semibold">{euro(total)}</dd></div>}
             {commande.notes && <div className="pt-2 text-gray-600">{commande.notes}</div>}
           </dl>
         </Carte>
@@ -84,8 +85,8 @@ export default async function CommandeDetail({ params }: { params: { id: string 
                   <th className="text-right">Commandé</th>
                   <th className="text-right">Reçu</th>
                   <th className="text-right">Reste</th>
-                  <th className="text-right">Prix unitaire</th>
-                  <th className="text-right">Sous-total</th>
+                  {voitPrix && <th className="text-right">Prix unitaire</th>}
+                  {voitPrix && <th className="text-right">Sous-total</th>}
                 </tr>
               </thead>
               <tbody>
@@ -95,8 +96,8 @@ export default async function CommandeDetail({ params }: { params: { id: string 
                     <td className="text-right">{nombre(l.quantite)}</td>
                     <td className="text-right">{nombre(l.quantite_recue)}</td>
                     <td className="text-right">{nombre(Math.max(Number(l.quantite) - Number(l.quantite_recue), 0))}</td>
-                    <td className="text-right">{euro(l.prix_unitaire)}</td>
-                    <td className="text-right">{euro(Number(l.quantite) * Number(l.prix_unitaire))}</td>
+                    {voitPrix && <td className="text-right">{euro(l.prix_unitaire)}</td>}
+                    {voitPrix && <td className="text-right">{euro(Number(l.quantite) * Number(l.prix_unitaire))}</td>}
                   </tr>
                 ))}
               </tbody>

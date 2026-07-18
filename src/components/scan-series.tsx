@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 // Champ acceptant la douchette (frappe clavier + Entrée) ou la saisie manuelle.
 // Empile les numéros de série ; secours : saisie et suppression manuelles.
@@ -8,12 +8,18 @@ export function ScanSeries({
   series,
   onChange,
   placeholder = "Scanner ou saisir un n° de série, puis Entrée",
+  autoFocus = false,
 }: {
   series: string[];
   onChange: (s: string[]) => void;
   placeholder?: string;
+  autoFocus?: boolean;
 }) {
   const [valeur, setValeur] = useState("");
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (autoFocus) ref.current?.focus();
+  }, [autoFocus]);
 
   function ajouter() {
     const v = valeur.trim();
@@ -26,6 +32,7 @@ export function ScanSeries({
   return (
     <div>
       <input
+        ref={ref}
         value={valeur}
         onChange={(e) => setValeur(e.target.value)}
         onKeyDown={(e) => {

@@ -51,6 +51,33 @@ async function marquerReservationSortie(
   }
 }
 
+// Création rapide d'un client + chantier depuis l'écran des sorties.
+export async function creerClientChantierRapide(formData: FormData) {
+  const supabase = createClient();
+
+  const clientNom = String(formData.get("client_nom") || "").trim();
+  const chantierLibelle = String(formData.get("chantier_libelle") || "").trim();
+  if (!clientNom || !chantierLibelle) return;
+
+  const { data: client, error: errClient } = await supabase
+    .from("clients")
+    .insert({
+      nom: clientNom,
+      adresse: String(formData.get("client_adresse") || "").trim() || null,
+    })
+    .select("id").single();
+  if (errClient || !client) throw new Error(errClient?.message || "Création du client impossible");
+
+  const { error: errChantier } = await supabase.from("chantiers").insert({
+    client_id: client.id,
+    libelle: chantierLibelle,
+    date_prevue: String(formData.get("chantier_date") || "").trim() || null,
+  });
+  if (errChantier) throw new Error(errChantier.message || "Création du chantier impossible");
+
+  revalidatePath("/sorties");
+}
+
 export async function creerReservation(formData: FormData) {
   const supabase = createClient();
   await supabase.from("reservations").insert({

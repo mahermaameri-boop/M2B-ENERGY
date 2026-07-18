@@ -1,8 +1,7 @@
-import { requireProfil, peutVoirCa, peutVoirMarge } from "@/lib/auth";
+import { requireProfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, CarteStat, Vide, Badge } from "@/components/ui";
-import { euro, nombre, pourcentage } from "@/lib/format";
-import { dateISO } from "@/lib/format";
+import { euro, nombre, pourcentage, dateISO } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -11,68 +10,121 @@ interface LignePrev {
   previsionnel: number;
 }
 
+interface MargeClient {
+  client_id: string;
+  nom: string;
+  ca: number;
+  marge: number;
+  marge_pct: number | null;
+}
+
 export default async function TableauDeBord() {
   const profil = await requireProfil();
-  const voitCa = peutVoirCa(profil.role);
-  const voitMarge = peutVoirMarge(profil.role);
+  const estAdmin = profil.role === "admin";
   const supabase = createClient();
+  const aujourdhui = dateISO();
 
-  const [{ data: articles }, { data: prev }] = await Promise.all([
-    supabase.from("articles").select("id, reference, designation, seuil_manuel").eq("actif", true),
-    supabase.rpc("fn_stock_previsionnel", { d_cible: dateISO() }),
+  // Données opérationnelles (visibles par tous)
+  const [
+    { data: articles },
+    { data: prev },
+    { count: chantiersPlanifies },
+    { count: commandesAReceptionner },
+  ] = await Promise.all([
+    supabase
+      .from("articles")
+      .select("id, reference, designation, seuil_manuel")
+      .eq("actif", true)
+      .eq("compose", false),
+    supabase.rpc("fn_stock_previsionnel", { d_cible: aujourdhui }),
+    supabase
+      .from("chantiers")
+      .select("id", { count: "exact", head: true })
+      .or(`statut.eq.en_cours,date_prevue.gte.${aujourdhui}`),
+    supabase
+      .from("commandes")
+      .select("id", { count: "exact", head: true })
+      .in("statut", ["brouillon", "en_transit", "livree_partiel"]),
   ]);
 
-  const prevMap = new Map((prev as LignePrev[] | null)?.map((p) => [p.article_id, p.previsionnel]) ?? []);
+  const prevMap = new Map(
+    (prev as LignePrev[] | null)?.map((p) => [p.article_id, p.previsionnel]) ?? [],
+  );
   const alertes = (articles ?? [])
     .map((a) => ({ ...a, previsionnel: prevMap.get(a.id) ?? 0 }))
-    .filter((a) => a.previsionnel <= a.seuil_manuel);
+    .filter((a) => a.previsionnel <= a.seuil_manuel)
+    .sort((a, b) => a.previsionnel - b.previsionnel);
   const ruptures = alertes.filter((a) => a.previsionnel <= 0);
 
-  // Marges (admin) / CA (admin + bureau)
-  let margeClient: { client_id: string; nom: string; ca: number; marge: number; marge_pct: number | null }[] = [];
+  // Données financières (Admin uniquement)
+  let margeClient: MargeClient[] = [];
   let caTotal = 0;
   let margeTotal = 0;
 
-  if (voitMarge) {
+  if (estAdmin) {
     const { data } = await supabase
       .from("vue_marge_client")
       .select("client_id, nom, ca, marge, marge_pct")
       .order("marge", { ascending: false });
-    margeClient = (data as typeof margeClient) ?? [];
+    margeClient = (data as MargeClient[]) ?? [];
     caTotal = margeClient.reduce((s, c) => s + Number(c.ca), 0);
     margeTotal = margeClient.reduce((s, c) => s + Number(c.marge), 0);
-  } else if (voitCa) {
-    const { data } = await supabase.from("chantiers").select("client_id, ca, clients(nom)");
-    const parClient = new Map<string, { nom: string; ca: number }>();
-    for (const ch of (data as any[]) ?? []) {
-      const nom = ch.clients?.nom ?? "—";
-      const cur = parClient.get(ch.client_id) ?? { nom, ca: 0 };
-      cur.ca += Number(ch.ca);
-      parClient.set(ch.client_id, cur);
-    }
-    margeClient = [...parClient.entries()].map(([client_id, v]) => ({
-      client_id, nom: v.nom, ca: v.ca, marge: 0, marge_pct: null,
-    }));
-    caTotal = margeClient.reduce((s, c) => s + c.ca, 0);
   }
 
   const margePct = caTotal > 0 ? (margeTotal / caTotal) * 100 : null;
 
   return (
     <>
-      <EnTetePage titre="Tableau de bord" description={`Bienvenue, ${profil.nom || "collaborateur"}.`} />
+      <EnTetePage
+        titre="Tableau de bord"
+        description={`Bienvenue, ${profil.nom || "collaborateur"}.`}
+      />
 
+      {/* Cartes opérationnelles — visibles par tous */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {voitCa && <CarteStat libelle="Chiffre d'affaires (chantiers)" valeur={euro(caTotal)} accent="bleu" />}
-        {voitMarge && <CarteStat libelle="Marge totale" valeur={euro(margeTotal)} accent={margeTotal >= 0 ? "vert" : "rouge"} />}
-        {voitMarge && <CarteStat libelle="Marge moyenne" valeur={pourcentage(margePct)} accent="neutre" />}
-        <CarteStat libelle="Alertes stock" valeur={nombre(alertes.length)} accent={alertes.length ? "rouge" : "vert"} />
-        {!voitCa && <CarteStat libelle="Ruptures" valeur={nombre(ruptures.length)} accent={ruptures.length ? "rouge" : "vert"} />}
+        <CarteStat
+          libelle="Chantiers planifiés"
+          valeur={nombre(chantiersPlanifies ?? 0)}
+          accent="bleu"
+        />
+        <CarteStat
+          libelle="Commandes à réceptionner"
+          valeur={nombre(commandesAReceptionner ?? 0)}
+          accent="neutre"
+        />
+        <CarteStat
+          libelle="Alertes stock"
+          valeur={nombre(alertes.length)}
+          accent={alertes.length ? "rouge" : "vert"}
+        />
+        <CarteStat
+          libelle="Ruptures"
+          valeur={nombre(ruptures.length)}
+          accent={ruptures.length ? "rouge" : "vert"}
+        />
       </div>
 
+      {/* Cartes financières — Admin uniquement */}
+      {estAdmin && (
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <CarteStat libelle="Chiffre d'affaires" valeur={euro(caTotal)} accent="bleu" />
+          <CarteStat
+            libelle="Marge totale"
+            valeur={euro(margeTotal)}
+            accent={margeTotal >= 0 ? "vert" : "rouge"}
+          />
+          <CarteStat
+            libelle="Marge moyenne %"
+            valeur={pourcentage(margePct)}
+            accent="neutre"
+          />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {voitCa && (
-          <Carte titre={voitMarge ? "Marge par client" : "Chiffre d'affaires par client"}>
+        {/* Marge par client — Admin uniquement */}
+        {estAdmin && (
+          <Carte titre="Marge par client">
             {margeClient.length === 0 ? (
               <Vide message="Aucun chantier enregistré." />
             ) : (
@@ -81,17 +133,17 @@ export default async function TableauDeBord() {
                   <tr>
                     <th>Client</th>
                     <th className="text-right">CA</th>
-                    {voitMarge && <th className="text-right">Marge</th>}
-                    {voitMarge && <th className="text-right">Marge %</th>}
+                    <th className="text-right">Marge</th>
+                    <th className="text-right">Marge %</th>
                   </tr>
                 </thead>
                 <tbody>
                   {margeClient.map((c) => (
                     <tr key={c.client_id}>
                       <td className="font-medium">{c.nom}</td>
-                      <td className="text-right">{euro(c.ca)}</td>
-                      {voitMarge && <td className="text-right">{euro(c.marge)}</td>}
-                      {voitMarge && <td className="text-right">{pourcentage(c.marge_pct)}</td>}
+                      <td className="text-right">{euro(Number(c.ca))}</td>
+                      <td className="text-right">{euro(Number(c.marge))}</td>
+                      <td className="text-right">{pourcentage(c.marge_pct)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -100,6 +152,7 @@ export default async function TableauDeBord() {
           </Carte>
         )}
 
+        {/* Articles à réapprovisionner — visibles par tous */}
         <Carte titre="Articles à réapprovisionner">
           {alertes.length === 0 ? (
             <Vide message="Aucune alerte. Le stock prévisionnel est suffisant." />

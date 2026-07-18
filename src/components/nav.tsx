@@ -11,19 +11,23 @@ interface Item {
   roles: Role[];
 }
 
+const TOUS: Role[] = ["admin", "collaborateur"];
+const ADMIN: Role[] = ["admin"];
+
 const ITEMS: Item[] = [
-  { href: "/tableau-de-bord", libelle: "Tableau de bord", roles: ["admin", "operationnel", "bureau"] },
-  { href: "/stock",           libelle: "Stock",            roles: ["admin", "operationnel", "bureau"] },
-  { href: "/catalogue",       libelle: "Catalogue & compositions", roles: ["admin", "bureau"] },
-  { href: "/commandes",       libelle: "Commandes",        roles: ["admin", "bureau"] },
-  { href: "/receptions",      libelle: "Réceptions",       roles: ["admin", "operationnel", "bureau"] },
-  { href: "/fournisseurs",    libelle: "Fournisseurs & prix", roles: ["admin", "bureau"] },
-  { href: "/sorties",         libelle: "Sorties & bons",   roles: ["admin", "operationnel", "bureau"] },
-  { href: "/retours",         libelle: "Retours",          roles: ["admin", "operationnel", "bureau"] },
-  { href: "/clients",         libelle: "Clients & CA",     roles: ["admin", "bureau"] },
-  { href: "/marges",          libelle: "Marges",           roles: ["admin"] },
-  { href: "/tracabilite",     libelle: "Traçabilité SAV",  roles: ["admin", "operationnel", "bureau"] },
-  { href: "/acces",           libelle: "Rôles & accès",    roles: ["admin"] },
+  { href: "/tableau-de-bord", libelle: "Tableau de bord",          roles: TOUS },
+  { href: "/stock",           libelle: "Stock",                    roles: TOUS },
+  { href: "/catalogue",       libelle: "Catalogue & compositions", roles: TOUS },
+  { href: "/a-commander",     libelle: "À commander",              roles: TOUS },
+  { href: "/commandes",       libelle: "Commandes",                roles: TOUS },
+  { href: "/receptions",      libelle: "Réceptions",               roles: TOUS },
+  { href: "/fournisseurs",    libelle: "Fournisseurs & prix",      roles: ADMIN },
+  { href: "/sorties",         libelle: "Sorties & bons",           roles: TOUS },
+  { href: "/retours",         libelle: "Retours",                  roles: TOUS },
+  { href: "/clients",         libelle: "Clients & chantiers",      roles: TOUS },
+  { href: "/marges",          libelle: "Marges",                   roles: ADMIN },
+  { href: "/tracabilite",     libelle: "Traçabilité",              roles: TOUS },
+  { href: "/acces",           libelle: "Rôles & accès",            roles: ADMIN },
 ];
 
 export function BarreLaterale({ role, nom }: { role: Role; nom: string }) {
