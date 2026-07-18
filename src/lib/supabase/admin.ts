@@ -1,11 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { SUPABASE_URL, SUPABASE_SERVICE_KEY } from "./env";
 
-// Client "service_role" — À N'UTILISER QUE CÔTÉ SERVEUR (jamais exposé au client).
+// Client "service_role / secret" — À N'UTILISER QUE CÔTÉ SERVEUR.
 // Contourne la RLS : réservé à l'administration des comptes (module Accès).
 export function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 }

@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SUPABASE_SERVICE_KEY } from "@/lib/supabase/env";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
 import { dateFr } from "@/lib/format";
 import { LABEL_ROLE, type Profil, type Role } from "@/lib/types";
@@ -22,7 +23,7 @@ export default async function AccesPage() {
 
   // Fusion des e-mails via le client service_role. Peut être indisponible.
   const emails = new Map<string, string>();
-  let serviceRoleDisponible = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  let serviceRoleDisponible = Boolean(SUPABASE_SERVICE_KEY);
   if (serviceRoleDisponible) {
     try {
       const admin = createAdminClient();

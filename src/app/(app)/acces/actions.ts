@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getProfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SUPABASE_SERVICE_KEY } from "@/lib/supabase/env";
 import type { Role } from "@/lib/types";
 
 async function assertAdmin() {
@@ -29,7 +30,7 @@ export async function changerRole(formData: FormData) {
 
 export async function inviterCollaborateur(formData: FormData) {
   await assertAdmin();
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!SUPABASE_SERVICE_KEY) {
     throw new Error(
       "La clé service_role n'est pas configurée : l'invitation de comptes est indisponible.",
     );
