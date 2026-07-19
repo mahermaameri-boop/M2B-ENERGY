@@ -20,22 +20,24 @@ pour M2B ENERGY (Belgique). Interface entièrement en français, montants en eur
 
 ---
 
-## 2. Modules (navigation par onglets, adaptée au rôle)
+## 2. Navigation — 7 univers (menu latéral + sous-onglets)
 
-1. **Tableau de bord** — synthèse CA / marge / alertes stock (version « sans argent » pour l'opérationnel).
-2. **Stock** — stock actuel, valorisation, **prévisionnel avec sélecteur de date**, états OK / Bas / Rupture.
-3. **Catalogue & compositions** — articles (dont produits **composés** non stockés) et nomenclatures (BOM).
-4. **À commander** — passerelle **planning → achats** : encodage des besoins (décomposition des produits composés + croisement stock), puis bouton vert **« Marquer comme commandé »** créant la commande des manquants.
-5. **Commandes** — commandes fournisseurs multi-produits + **décomposition d'un produit fini** (montants masqués pour le collaborateur).
-6. **Réceptions** — « à réceptionner » **et** « réceptionnées / passées » ; réception (facture + n° de série au scan, focus auto) et **entrée manuelle**.
-7. **Fournisseurs & prix (admin)** — fiches, historique des prix, **meilleur prix** et **ordre d'appel au réassort**.
-8. **Sorties & bons de sortie** — réservations (prévisionnel) + sorties avec **bon de sortie PDF + QR code** ; **création client/chantier inline**.
-9. **Retours** — 3 types : chantier (réintégration), défectueux/SAV (garantie), annulation de commande (avoir).
-10. **Clients & chantiers** — clients, chantiers, saisie du CA et de la sous-traitance (masqués pour le collaborateur).
-11. **Historique** — chantiers **réalisés** : date, client, matériel posé, fournisseur(s) et (admin) prix d'installation, CA, marge.
-12. **Marges (admin)** — marge par chantier et par client.
-13. **Traçabilité** — historique complet d'un n° de série (article ↔ client ↔ fournisseur ↔ facture).
-14. **Rôles & accès (admin)** — invitations et gestion des 2 rôles.
+L'application est organisée en **7 univers** ; chaque univers regroupe ses modules en
+**sous-onglets**. Masquage par rôle (l'Admin voit le financier, le Collaborateur non).
+
+1. **Tableau de bord** — tour de contrôle : KPIs (admin), cartes « à traiter » cliquables, poses de la semaine, alertes stock.
+2. **Chantiers** — le cœur : *Chantiers* (liste + pipeline) · *Planning* (calendrier, glisser-déposer) · *Clients*. La **fiche chantier** est le hub (composition, pipeline, actions, finances).
+3. **Achats** — *À commander* (consolidé par article) · *Commandes* · *Réceptions* · *Fournisseurs & prix* (admin).
+4. **Atelier & stock** — *Stock* / prévisionnel · *À préparer* (+ étiquettes) · *Sorties*.
+5. **Marges & historique** — chantiers clôturés, marges, exports CSV/Excel (admin).
+6. **SAV & retours** — *Traçabilité* série · *Retours* (3 types).
+7. **Réglages** — *Catalogue & compositions* (+ variantes) · *Utilisateurs & rôles* (admin).
+
+> **Principe fondateur — tout part du chantier.** Le matériel se déclare **une seule fois**
+> sur le chantier (article/produit composé + variante + quantité, table `chantier_lignes`).
+> Les réservations (stock dispo) et l'« à commander » (manquants, décomposés en articles)
+> en **dérivent automatiquement** — aucune saisie parallèle. Statut de chantier **calculé** :
+> À commander → Commandé → Prêt → Préparé → Posé → Clôturé.
 
 > **Prix fournisseurs = commandes réellement passées.** L'historique des prix, le meilleur
 > prix, l'ordre de réassort et la valeur du stock se calculent à partir des lignes de
