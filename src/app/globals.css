@@ -57,7 +57,7 @@ html, body {
   .table-base tbody tr:hover { @apply bg-brand-50/40; }
 
   /* Badges */
-  .badge { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset; }
+  .badge { @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium; }
 
   /* Liens de tableau */
   .lien { @apply font-medium text-brand-600 hover:text-brand-700 hover:underline; }

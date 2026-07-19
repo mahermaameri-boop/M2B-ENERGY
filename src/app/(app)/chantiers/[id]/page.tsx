@@ -25,7 +25,7 @@ export default async function FicheChantier({ params }: { params: { id: string }
   if (!chantier) notFound();
   const ch = chantier as any;
 
-  const [{ data: reservations }, { data: besoins }, { data: series }, { data: fournisseurs }, marge] =
+  const [{ data: reservations }, { data: besoins }, { data: sorties }, { data: series }, { data: fournisseurs }, marge] =
     await Promise.all([
       supabase.from("reservations")
         .select("article_id, quantite, statut, articles(reference, designation, serialise)")
@@ -33,6 +33,9 @@ export default async function FicheChantier({ params }: { params: { id: string }
       supabase.from("besoins_appro")
         .select("article_id, quantite, statut, commande_id, articles(reference, designation), commandes(numero, date_livraison_prevue)")
         .eq("chantier_id", params.id),
+      supabase.from("mouvements_stock")
+        .select("article_id, quantite, articles(reference, designation)")
+        .eq("chantier_id", params.id).eq("type", "sortie"),
       supabase.from("mouvements_stock")
         .select("numero_serie_id, numeros_serie(numero_serie, articles(designation))")
         .eq("chantier_id", params.id).eq("type", "sortie").not("numero_serie_id", "is", null),
@@ -47,21 +50,30 @@ export default async function FicheChantier({ params }: { params: { id: string }
     { statut: ch.statut, prepare_le: ch.prepare_le, cout_sous_traitance: admin ? (ch.cout_sous_traitance ?? null) : null },
     besoinsStatuts,
   );
+  const estPose = etape === "pose" || etape === "cloture";
 
-  // Agrège le statut par composant (réservé / à commander / commandé / reçu)
-  type Comp = { reference: string; designation: string; reserve: number; a_commander: number; commande: number; recu: number; livraison: string | null };
+  // Agrège le statut par composant. Pour un chantier posé/clôturé, on affiche le
+  // matériel réellement SORTI (cohérence) ; sinon l'état d'approvisionnement.
+  type Comp = { reference: string; designation: string; reserve: number; a_commander: number; commande: number; recu: number; pose: number; livraison: string | null };
   const comps = new Map<string, Comp>();
   const get = (id: string, ref: string, des: string) =>
-    comps.get(id) ?? comps.set(id, { reference: ref, designation: des, reserve: 0, a_commander: 0, commande: 0, recu: 0, livraison: null }).get(id)!;
-  for (const r of (reservations as any[]) ?? []) {
-    const c = get(r.article_id, r.articles?.reference ?? "", r.articles?.designation ?? "");
-    c.reserve += Number(r.quantite);
-  }
-  for (const b of (besoins as any[]) ?? []) {
-    const c = get(b.article_id, b.articles?.reference ?? "", b.articles?.designation ?? "");
-    if (b.statut === "a_commander") c.a_commander += Number(b.quantite);
-    else if (b.statut === "commande") { c.commande += Number(b.quantite); c.livraison = b.commandes?.date_livraison_prevue ?? c.livraison; }
-    else if (b.statut === "recu") c.recu += Number(b.quantite);
+    comps.get(id) ?? comps.set(id, { reference: ref, designation: des, reserve: 0, a_commander: 0, commande: 0, recu: 0, pose: 0, livraison: null }).get(id)!;
+  if (estPose) {
+    for (const m of (sorties as any[]) ?? []) {
+      const c = get(m.article_id, m.articles?.reference ?? "", m.articles?.designation ?? "");
+      c.pose += Math.abs(Number(m.quantite));
+    }
+  } else {
+    for (const r of (reservations as any[]) ?? []) {
+      const c = get(r.article_id, r.articles?.reference ?? "", r.articles?.designation ?? "");
+      c.reserve += Number(r.quantite);
+    }
+    for (const b of (besoins as any[]) ?? []) {
+      const c = get(b.article_id, b.articles?.reference ?? "", b.articles?.designation ?? "");
+      if (b.statut === "a_commander") c.a_commander += Number(b.quantite);
+      else if (b.statut === "commande") { c.commande += Number(b.quantite); c.livraison = b.commandes?.date_livraison_prevue ?? c.livraison; }
+      else if (b.statut === "recu") c.recu += Number(b.quantite);
+    }
   }
   const composants = [...comps.values()];
   const nbManquant = ((besoins as any[]) ?? []).filter((b) => b.statut === "a_commander").length;
@@ -92,12 +104,13 @@ export default async function FicheChantier({ params }: { params: { id: string }
                   </thead>
                   <tbody>
                     {composants.map((c) => {
-                      const total = c.reserve + c.a_commander + c.commande + c.recu;
+                      const total = c.reserve + c.a_commander + c.commande + c.recu + c.pose;
                       return (
                         <tr key={c.reference}>
                           <td className="font-medium">{c.designation} <span className="font-mono text-xs text-gray-400">{c.reference}</span></td>
                           <td className="text-right">{nombre(total)}</td>
                           <td className="space-x-1">
+                            {c.pose > 0 && <Badge couleur="gris">Posé {nombre(c.pose)}</Badge>}
                             {c.reserve > 0 && <Badge couleur="vert">En stock · réservé {nombre(c.reserve)}</Badge>}
                             {c.commande > 0 && <Badge couleur="bleu">Commandé {nombre(c.commande)}{c.livraison ? ` · ${dateFr(c.livraison)}` : ""}</Badge>}
                             {c.a_commander > 0 && <Badge couleur="orange">À commander {nombre(c.a_commander)}</Badge>}
