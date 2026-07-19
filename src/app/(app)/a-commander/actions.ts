@@ -101,10 +101,17 @@ export async function marquerCommande(formData: FormData) {
   const { count } = await supabase.from("commandes").select("id", { count: "exact", head: true });
   const numero = `CMD-${annee}-${String((count ?? 0) + 1).padStart(4, "0")}`;
 
+  // Livraison prévue = date de commande + délai du fournisseur ; statut « en transit ».
+  const { data: fdata } = await supabase.from("fournisseurs")
+    .select("delai_livraison_jours").eq("id", fournisseur_id).maybeSingle();
+  const dLiv = new Date();
+  dLiv.setDate(dLiv.getDate() + Number(fdata?.delai_livraison_jours ?? 7));
+  const dateLivraison = dLiv.toISOString().slice(0, 10);
+
   const { data: commande } = await supabase
     .from("commandes")
-    .insert({ numero, fournisseur_id, date_commande: today(), statut: "brouillon",
-      notes: "Créée depuis « À commander »" })
+    .insert({ numero, fournisseur_id, date_commande: today(), date_livraison_prevue: dateLivraison,
+      statut: "en_transit", notes: "Créée depuis « À commander »" })
     .select("id").single();
   if (!commande) throw new Error("Création de la commande impossible.");
 
@@ -197,6 +204,11 @@ export async function creerCommandesGroupees(formData: FormData) {
     throw new Error("Rien à commander : tout est en stock ou aucun fournisseur n'est connu pour ces articles.");
   }
 
+  // Délai par fournisseur → date de livraison prévue
+  const { data: fs } = await supabase.from("fournisseurs")
+    .select("id, delai_livraison_jours").in("id", [...parFournisseur.keys()]);
+  const delaiMap = new Map(((fs as any[]) ?? []).map((f) => [f.id, Number(f.delai_livraison_jours ?? 7)]));
+
   // Numérotation continue (même schéma que marquerCommande), incrémentée par commande créée
   const annee = new Date().getFullYear();
   const { count } = await supabase.from("commandes").select("id", { count: "exact", head: true });
@@ -206,10 +218,13 @@ export async function creerCommandesGroupees(formData: FormData) {
   for (const [fournisseur_id, arts] of parFournisseur) {
     seq += 1;
     const numero = `CMD-${annee}-${String(seq).padStart(4, "0")}`;
+    const dLiv = new Date();
+    dLiv.setDate(dLiv.getDate() + (delaiMap.get(fournisseur_id) ?? 7));
 
     const { data: commande } = await supabase
       .from("commandes")
-      .insert({ numero, fournisseur_id, date_commande: today(), statut: "brouillon",
+      .insert({ numero, fournisseur_id, date_commande: today(),
+        date_livraison_prevue: dLiv.toISOString().slice(0, 10), statut: "en_transit",
         notes: "Créée depuis « À commander » (consolidé par article)" })
       .select("id").single();
     if (!commande) throw new Error("Création de la commande impossible.");

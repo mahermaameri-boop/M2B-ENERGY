@@ -18,7 +18,7 @@ export default async function ReceptionsPage() {
   const [{ data: commandes }, { data: passees }, { data: articles }, { data: fournisseurs }] = await Promise.all([
     supabase.from("commandes")
       .select("id, numero, date_livraison_prevue, statut, fournisseurs(nom)")
-      .in("statut", ["brouillon", "en_transit", "livree_partiel"])
+      .in("statut", ["en_transit", "livree_partiel"])
       .order("date_livraison_prevue"),
     supabase.from("commandes")
       .select("id, numero, statut, fournisseurs(nom)")

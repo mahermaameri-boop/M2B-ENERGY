@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from "react";
 export function ScanSeries({
   series,
   onChange,
-  placeholder = "Scanner ou saisir un n° de série, puis Entrée",
+  placeholder = "Scanner ou taper un n° de série, puis Entrée ou « Ajouter »",
   autoFocus = false,
 }: {
   series: string[];
@@ -31,16 +31,21 @@ export function ScanSeries({
 
   return (
     <div>
-      <input
-        ref={ref}
-        value={valeur}
-        onChange={(e) => setValeur(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); ajouter(); }
-        }}
-        className="champ"
-        placeholder={placeholder}
-      />
+      <div className="flex gap-2">
+        <input
+          ref={ref}
+          value={valeur}
+          onChange={(e) => setValeur(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); ajouter(); }
+          }}
+          className="champ"
+          placeholder={placeholder}
+        />
+        <button type="button" onClick={ajouter} className="btn-secondaire shrink-0">
+          Ajouter
+        </button>
+      </div>
       {series.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {series.map((s) => (

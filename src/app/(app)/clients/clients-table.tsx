@@ -30,6 +30,10 @@ type ArticleLite = { id: string; reference: string; designation: string };
 
 type CompositionLite = { id: string; article_fini_id: string; nom_variante: string };
 
+// Ligne de matériel saisie dans le formulaire de création de chantier,
+// avant enregistrement (état local, sérialisée en JSON à l'envoi).
+type LigneDraft = { article_id: string; composition_id: string | null; quantite: number };
+
 const STATUTS: { valeur: string; label: string }[] = [
   { valeur: "planifie", label: "Planifié" },
   { valeur: "realise", label: "Réalisé" },
@@ -388,40 +392,14 @@ function ClientRows({
               </div>
 
               {creationChantierOuverte && (
-                <div className="rounded-md border border-gray-200 bg-white p-3">
-                  <form action={envoyerCreationChantier} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input type="hidden" name="client_id" value={client.id} />
-                    <div>
-                      <label className="etiquette">Référence du chantier</label>
-                      <input name="libelle" required className="champ" />
-                    </div>
-                    <div>
-                      <label className="etiquette">Date prévue</label>
-                      <input name="date_prevue" type="date" className="champ" />
-                    </div>
-                    <div>
-                      <label className="etiquette">Statut</label>
-                      <select name="statut" className="champ" defaultValue="planifie">
-                        {STATUTS.map((s) => <option key={s.valeur} value={s.valeur}>{s.label}</option>)}
-                      </select>
-                    </div>
-                    {voitCa && (
-                      <>
-                        <div>
-                          <label className="etiquette">Chiffre d&apos;affaires (€)</label>
-                          <input name="ca" type="number" step="0.01" min="0" defaultValue={0} className="champ" />
-                        </div>
-                        <div>
-                          <label className="etiquette">Coût sous-traitance (€)</label>
-                          <input name="cout_sous_traitance" type="number" step="0.01" min="0" className="champ" />
-                        </div>
-                      </>
-                    )}
-                    <div className="sm:col-span-2">
-                      <button className="btn-primaire">Enregistrer le chantier</button>
-                    </div>
-                  </form>
-                </div>
+                <FormulaireCreationChantier
+                  clientId={client.id}
+                  voitCa={voitCa}
+                  articles={articles}
+                  articleParId={articleParId}
+                  variantesParFini={variantesParFini}
+                  envoyerCreationChantier={envoyerCreationChantier}
+                />
               )}
 
               {chantiers.length === 0 ? (
@@ -470,6 +448,167 @@ function ClientRows({
         </tr>
       )}
     </>
+  );
+}
+
+// Formulaire d'ajout d'un chantier : champs du chantier + saisie de plusieurs
+// lignes de matériel à poser avant enregistrement. Le chantier et son matériel
+// sont créés en une fois (creerChantier lit le champ caché `lignes`).
+function FormulaireCreationChantier({
+  clientId,
+  voitCa,
+  articles,
+  articleParId,
+  variantesParFini,
+  envoyerCreationChantier,
+}: {
+  clientId: string;
+  voitCa: boolean;
+  articles: ArticleLite[];
+  articleParId: Map<string, ArticleLite>;
+  variantesParFini: Map<string, CompositionLite[]>;
+  envoyerCreationChantier: Action;
+}) {
+  const [lignes, setLignes] = useState<LigneDraft[]>([]);
+  // Brouillon de la ligne en cours de saisie.
+  const [articleSel, setArticleSel] = useState<string>(articles[0]?.id ?? "");
+  const [varianteSel, setVarianteSel] = useState<string>("");
+  const [quantite, setQuantite] = useState<number>(1);
+
+  const variantes = variantesParFini.get(articleSel) ?? [];
+
+  function ajouterLigne() {
+    if (!articleSel || !(quantite > 0)) return;
+    const composition_id = variantes.length >= 2 ? (varianteSel || variantes[0]?.id || null) : null;
+    setLignes((arr) => [...arr, { article_id: articleSel, composition_id, quantite }]);
+    // Réinitialise le brouillon (garde l'article courant, remet quantité à 1).
+    setQuantite(1);
+    setVarianteSel("");
+  }
+
+  function retirerLigne(index: number) {
+    setLignes((arr) => arr.filter((_, i) => i !== index));
+  }
+
+  function libelleLigne(l: LigneDraft): string {
+    const art = articleParId.get(l.article_id);
+    const base = art ? `${art.reference} — ${art.designation}` : "Article inconnu";
+    if (!l.composition_id) return base;
+    const v = (variantesParFini.get(l.article_id) ?? []).find((x) => x.id === l.composition_id);
+    return v ? `${base} (${v.nom_variante})` : base;
+  }
+
+  async function envoyer(formData: FormData) {
+    await envoyerCreationChantier(formData);
+    // Réinitialise l'état des lignes après enregistrement réussi.
+    setLignes([]);
+    setQuantite(1);
+    setVarianteSel("");
+    setArticleSel(articles[0]?.id ?? "");
+  }
+
+  return (
+    <div className="rounded-md border border-gray-200 bg-white p-3">
+      <form action={envoyer} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <input type="hidden" name="client_id" value={clientId} />
+        <input type="hidden" name="lignes" value={JSON.stringify(lignes)} />
+        <div>
+          <label className="etiquette">Référence du chantier</label>
+          <input name="libelle" required className="champ" />
+        </div>
+        <div>
+          <label className="etiquette">Date prévue</label>
+          <input name="date_prevue" type="date" className="champ" />
+        </div>
+        <div>
+          <label className="etiquette">Statut</label>
+          <select name="statut" className="champ" defaultValue="planifie">
+            {STATUTS.map((s) => <option key={s.valeur} value={s.valeur}>{s.label}</option>)}
+          </select>
+        </div>
+        {voitCa && (
+          <>
+            <div>
+              <label className="etiquette">Chiffre d&apos;affaires (€)</label>
+              <input name="ca" type="number" step="0.01" min="0" defaultValue={0} className="champ" />
+            </div>
+            <div>
+              <label className="etiquette">Coût sous-traitance (€)</label>
+              <input name="cout_sous_traitance" type="number" step="0.01" min="0" className="champ" />
+            </div>
+          </>
+        )}
+
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-3 sm:col-span-2">
+          <span className="text-sm font-semibold text-gray-700">Matériel à poser</span>
+
+          {lignes.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {lignes.map((l, i) => (
+                <li key={i} className="flex items-center justify-between gap-2 rounded bg-white px-2 py-1 text-sm">
+                  <span>
+                    {libelleLigne(l)}
+                    <span className="ml-2 text-gray-500">× {nombre(l.quantite)}</span>
+                  </span>
+                  <button type="button" className="btn-danger text-xs" onClick={() => retirerLigne(i)}>
+                    Retirer
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-4">
+            <div className="sm:col-span-2">
+              <label className="etiquette">Article</label>
+              <select
+                className="champ"
+                value={articleSel}
+                onChange={(e) => { setArticleSel(e.target.value); setVarianteSel(""); }}
+              >
+                {articles.map((a) => (
+                  <option key={a.id} value={a.id}>{a.reference} — {a.designation}</option>
+                ))}
+              </select>
+              {variantes.length >= 2 && (
+                <div className="mt-2">
+                  <label className="etiquette">Variante</label>
+                  <select
+                    className="champ"
+                    value={varianteSel || variantes[0]?.id || ""}
+                    onChange={(e) => setVarianteSel(e.target.value)}
+                  >
+                    {variantes.map((v) => (
+                      <option key={v.id} value={v.id}>{v.nom_variante}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="etiquette">Quantité</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={quantite}
+                onChange={(e) => setQuantite(Number(e.target.value))}
+                className="champ"
+              />
+            </div>
+            <div className="flex items-end">
+              <button type="button" className="btn-secondaire w-full" onClick={ajouterLigne}>
+                + Ajouter la ligne
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="sm:col-span-2">
+          <button className="btn-primaire">Enregistrer le chantier</button>
+        </div>
+      </form>
+    </div>
   );
 }
 

@@ -53,8 +53,49 @@ export async function creerChantier(formData: FormData) {
     donnees.cout_sous_traitance = formData.get("cout_sous_traitance") ? Number(formData.get("cout_sous_traitance")) : null;
   }
 
-  await supabase.from("chantiers").insert(donnees);
+  const { data: chantierCree } = await supabase
+    .from("chantiers").insert(donnees).select("id").single();
+  const chantierId = chantierCree?.id as string | undefined;
+
+  // Matériel à poser saisi directement dans le formulaire de création :
+  // JSON [{ article_id, composition_id?, quantite }]. Pour chaque ligne on
+  // insère la ligne de chantier puis on génère l'appro (réutilise le pattern
+  // de ajouterLigneChantier).
+  if (chantierId) {
+    let lignes: { article_id?: string; composition_id?: string | null; quantite?: number }[] = [];
+    try {
+      const brut = String(formData.get("lignes") || "").trim();
+      if (brut) lignes = JSON.parse(brut);
+    } catch {
+      lignes = [];
+    }
+
+    if (Array.isArray(lignes) && lignes.length > 0) {
+      const uid = (await supabase.auth.getUser()).data.user?.id ?? null;
+      for (const ligne of lignes) {
+        const article_id = String(ligne.article_id || "").trim();
+        const quantite = Number(ligne.quantite || 0);
+        if (!article_id || !(quantite > 0)) continue;
+        const composition_id = String(ligne.composition_id || "").trim() || null;
+
+        await supabase.from("chantier_lignes").insert({
+          chantier_id: chantierId,
+          article_id,
+          composition_id,
+          quantite,
+        });
+
+        const comps = await decomposer(supabase, article_id, quantite, composition_id);
+        await genererAppro(supabase, chantierId, comps, { cree_par: uid, composition_id });
+      }
+    }
+  }
+
   revalidatePath("/clients");
+  revalidatePath("/chantiers");
+  revalidatePath("/a-commander");
+  revalidatePath("/stock");
+  revalidatePath("/planning");
 }
 
 export async function modifierChantier(formData: FormData) {

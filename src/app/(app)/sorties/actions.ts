@@ -157,6 +157,9 @@ export async function effectuerSortie(formData: FormData) {
 
   // Le chantier passe en « réalisé » (installation faite → apparaît dans l'Historique)
   await supabase.from("chantiers").update({ statut: "realise" }).eq("id", chantier_id);
+  // Cohérence : plus aucun besoin « à commander / commandé » sur un chantier posé.
+  await supabase.from("besoins_appro").update({ statut: "recu" })
+    .eq("chantier_id", chantier_id).in("statut", ["a_commander", "commande"]);
 
   revalidatePath("/sorties");
   revalidatePath("/stock");

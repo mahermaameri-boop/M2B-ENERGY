@@ -188,6 +188,24 @@ where id = (select id from auth.users where email = 'autre.admin@m2benergy.be');
 4. Déployez. Ajoutez l'URL Vercel dans **Supabase → Authentication → URL Configuration**
    (Site URL + Redirect URLs) pour que les e-mails d'invitation pointent au bon endroit.
 
+### Activer les invitations de collaborateurs (clé service_role)
+
+Le module **Réglages → Utilisateurs & rôles** invite des collaborateurs par e-mail et
+affiche leurs adresses : cela nécessite la clé **service_role** (secrète) côté serveur.
+Tant qu'elle n'est pas configurée, l'app affiche « la clé service_role n'est pas
+configurée » et l'invitation est indisponible (le reste fonctionne).
+
+Pour l'activer :
+1. **Supabase → Project Settings → API** → copiez la clé **`service_role` `secret`**
+   (ancien format) **ou** créez une **`Secret key`** (nouveau format `sb_secret_…`).
+2. **Vercel → votre projet → Settings → Environment Variables** → ajoutez
+   `SUPABASE_SERVICE_ROLE_KEY` (ou `SUPABASE_SECRET_KEY`) avec cette valeur, pour
+   l'environnement **Production** (et Preview si besoin).
+3. **Redeploy** depuis Vercel (onglet Deployments → ⋯ → Redeploy).
+
+⚠️ Cette clé contourne la sécurité RLS : ne la mettez que dans les variables serveur
+Vercel/Supabase, jamais dans le code ni côté navigateur.
+
 ---
 
 ## 8. Test rapide avec les données de démo

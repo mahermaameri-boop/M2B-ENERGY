@@ -12,15 +12,18 @@ const CATEGORIE_DEFAUT = "Accessoires";
 
 export function CatalogueTable({
   articles,
+  finisAvecCompo = [],
   creerArticle,
   modifierArticle,
   supprimerArticle,
 }: {
   articles: Article[];
+  finisAvecCompo?: string[];
   creerArticle: ActionArticle;
   modifierArticle: ActionArticle;
   supprimerArticle: ActionArticle;
 }) {
+  const avecCompo = new Set(finisAvecCompo);
   const [creationOuverte, setCreationOuverte] = useState(false);
   const [editionId, setEditionId] = useState<string | null>(null);
 
@@ -132,6 +135,7 @@ export function CatalogueTable({
                         <div className="flex flex-wrap gap-1">
                           {a.serialise && <Badge couleur="bleu">Sérialisé</Badge>}
                           {a.compose && <Badge couleur="orange">Composé</Badge>}
+                          {a.compose && !avecCompo.has(a.id) && <Badge couleur="rouge">Nomenclature à définir</Badge>}
                           {a.actif ? (
                             <Badge couleur="vert">Actif</Badge>
                           ) : (

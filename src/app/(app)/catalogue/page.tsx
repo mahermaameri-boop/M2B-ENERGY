@@ -80,6 +80,7 @@ export default async function CataloguePage() {
         <Carte titre="Articles">
           <CatalogueTable
             articles={listeArticles}
+            finisAvecCompo={[...compositionsParFini.keys()]}
             creerArticle={creerArticle}
             modifierArticle={modifierArticle}
             supprimerArticle={supprimerArticle}
