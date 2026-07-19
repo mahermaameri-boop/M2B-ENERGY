@@ -1,9 +1,11 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Profil, Role } from "@/lib/types";
 
 // Récupère le profil de l'utilisateur connecté, ou null.
-export async function getProfil(): Promise<Profil | null> {
+// `cache()` : une seule requête par rendu (le layout et les pages partagent le résultat).
+export const getProfil = cache(async (): Promise<Profil | null> => {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -13,7 +15,7 @@ export async function getProfil(): Promise<Profil | null> {
     .eq("id", user.id)
     .single();
   return (data as Profil) ?? null;
-}
+});
 
 // Exige un utilisateur connecté ; sinon redirige vers /login.
 export async function requireProfil(): Promise<Profil> {

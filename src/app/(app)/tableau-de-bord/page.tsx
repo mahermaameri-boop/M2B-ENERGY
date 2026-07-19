@@ -90,7 +90,7 @@ export default async function TableauDeBord() {
     <>
       <EnTetePage
         titre="Tableau de bord"
-        description={`Bienvenue, ${profil.nom || "collaborateur"}.`}
+        description={profil.nom ? `Bonjour ${profil.nom}.` : "Bonjour."}
       />
 
       {estAdmin && <RelanceSousTraitance chantiers={aCompleter} />}

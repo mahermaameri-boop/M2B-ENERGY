@@ -11,9 +11,9 @@ export function EnTetePage({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex items-start justify-between gap-4">
+    <div className="mb-6 flex items-start justify-between gap-4 border-b border-gray-200 pb-4">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">{titre}</h1>
+        <h1 className="text-[1.35rem] font-semibold text-gray-900">{titre}</h1>
         {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
@@ -58,8 +58,8 @@ export function CarteStat({
     : "text-gray-900";
   return (
     <div className="carte p-4">
-      <div className="text-sm text-gray-500">{libelle}</div>
-      <div className={`mt-1 text-2xl font-semibold ${couleur}`}>{valeur}</div>
+      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{libelle}</div>
+      <div className={`mt-1.5 text-2xl font-semibold tracking-tight ${couleur}`}>{valeur}</div>
     </div>
   );
 }
@@ -71,11 +71,11 @@ export function Vide({ message }: { message: string }) {
 }
 
 const COULEURS_BADGE: Record<string, string> = {
-  vert: "bg-emerald-100 text-emerald-700",
-  rouge: "bg-red-100 text-red-700",
-  orange: "bg-amber-100 text-amber-700",
-  gris: "bg-gray-100 text-gray-600",
-  bleu: "bg-brand-100 text-brand-700",
+  vert: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  rouge: "bg-red-50 text-red-700 ring-red-600/20",
+  orange: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  gris: "bg-gray-50 text-gray-600 ring-gray-500/20",
+  bleu: "bg-brand-50 text-brand-700 ring-brand-600/20",
 };
 
 export function Badge({

@@ -8,7 +8,7 @@ export async function creerArticle(formData: FormData) {
   await supabase.from("articles").insert({
     reference: String(formData.get("reference") || "").trim(),
     designation: String(formData.get("designation") || "").trim(),
-    categorie: String(formData.get("categorie") || "accessoire"),
+    categorie: String(formData.get("categorie") || "Accessoires"),
     unite: String(formData.get("unite") || "").trim() || "pièce",
     serialise: formData.get("serialise") === "on",
     compose: formData.get("compose") === "on",
@@ -24,7 +24,7 @@ export async function modifierArticle(formData: FormData) {
   await supabase.from("articles").update({
     reference: String(formData.get("reference") || "").trim(),
     designation: String(formData.get("designation") || "").trim(),
-    categorie: String(formData.get("categorie") || "accessoire"),
+    categorie: String(formData.get("categorie") || "Accessoires"),
     unite: String(formData.get("unite") || "").trim() || "pièce",
     serialise: formData.get("serialise") === "on",
     compose: formData.get("compose") === "on",
