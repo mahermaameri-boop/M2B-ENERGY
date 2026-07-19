@@ -74,6 +74,7 @@ export function BarreLaterale({ role, nom }: { role: Role; nom: string }) {
                     <Link
                       key={item.href}
                       href={item.href}
+                      prefetch={false}
                       className={`flex items-center rounded-lg px-3 py-1.5 text-sm transition-colors ${
                         actif
                           ? "bg-brand-50 font-medium text-brand-700 ring-1 ring-inset ring-brand-100"
