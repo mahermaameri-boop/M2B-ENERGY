@@ -1,11 +1,11 @@
-import { requireProfil } from "@/lib/auth";
+import { requireProfil, peutVoirPrix } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
+import { EnTetePage, Carte, Badge } from "@/components/ui";
 import { SousOnglets } from "@/components/sous-onglets";
 import { ongletsUnivers } from "@/lib/navigation";
-import { nombre, dateFr } from "@/lib/format";
+import { nombre, dateISO } from "@/lib/format";
 import { LABEL_STATUT_BESOIN, type StatutBesoin } from "@/lib/types";
-import { supprimerBesoin, marquerCommande } from "./actions";
+import { SelectionAchats, type LigneArticle } from "./selection-achats";
 
 export const dynamic = "force-dynamic";
 
@@ -13,35 +13,97 @@ interface Besoin {
   id: string; chantier_id: string; article_id: string; quantite: number;
   date_besoin: string; statut: StatutBesoin; commande_id: string | null;
   articles: { reference: string; designation: string } | null;
-  chantiers: { libelle: string; clients: { nom: string } | null } | null;
+  chantiers: { libelle: string; date_prevue: string | null; clients: { nom: string } | null } | null;
 }
 
 export default async function ACommanderPage() {
   const profil = await requireProfil();
+  const voitPrix = peutVoirPrix(profil.role);
   const supabase = createClient();
 
-  const [{ data: besoinsData }, { data: stock }, { data: fournisseurs }] =
-    await Promise.all([
-      supabase.from("besoins_appro")
-        .select("id, chantier_id, article_id, quantite, date_besoin, statut, commande_id, articles(reference, designation), chantiers(libelle, clients(nom))")
-        .order("date_besoin"),
-      supabase.from("vue_stock_actuel").select("article_id, stock"),
-      supabase.from("fournisseurs").select("id, nom").order("nom"),
-    ]);
+  const aujourdhui = dateISO();
+  // Seuil d'urgence : pose dans les 7 jours (aujourd'hui + 7)
+  const dans7 = new Date();
+  dans7.setDate(dans7.getDate() + 7);
+  const seuilUrgence = dateISO(dans7);
+
+  const [{ data: besoinsData }, { data: prevData }, reassortRes] = await Promise.all([
+    supabase.from("besoins_appro")
+      .select("id, chantier_id, article_id, quantite, date_besoin, statut, commande_id, articles(reference, designation), chantiers(libelle, date_prevue, clients(nom))")
+      .in("statut", ["a_commander", "commande"])
+      .order("date_besoin"),
+    // Prévisionnel du jour : sert au drapeau « rupture »
+    supabase.rpc("fn_stock_previsionnel", { d_cible: aujourdhui }),
+    // Masquage financier serveur : le réassort (prix/fournisseur/délai) n'est requêté que pour l'Admin.
+    voitPrix
+      ? supabase.from("vue_reassort")
+          .select("article_id, fournisseur_id, fournisseur_nom, prix, delai_livraison_jours, rang")
+          .eq("rang", 1)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
 
   const besoins = (besoinsData as unknown as Besoin[]) ?? [];
-  const stockMap = new Map(((stock as any[]) ?? []).map((s) => [s.article_id, Number(s.stock)]));
+  const prevMap = new Map(((prevData as any[]) ?? []).map((p) => [p.article_id, Number(p.previsionnel)]));
+  const reassortMap = new Map(
+    ((reassortRes.data as any[]) ?? []).map((r) => [r.article_id, r]),
+  );
 
-  // Regroupe les besoins « à commander » par chantier
   const aCommander = besoins.filter((b) => b.statut === "a_commander");
-  const parChantier = new Map<string, { libelle: string; client: string; lignes: Besoin[] }>();
+
+  // ---------------------------------------------------------------------------
+  // Consolidation PAR ARTICLE (tous chantiers confondus)
+  // ---------------------------------------------------------------------------
+  const parArticle = new Map<
+    string,
+    {
+      designation: string; reference: string; quantite: number;
+      chantiers: Map<string, { libelle: string; date_prevue: string | null; urgent: boolean }>;
+    }
+  >();
   for (const b of aCommander) {
-    const cur = parChantier.get(b.chantier_id) ?? {
-      libelle: b.chantiers?.libelle ?? "—", client: b.chantiers?.clients?.nom ?? "—", lignes: [],
+    const cur = parArticle.get(b.article_id) ?? {
+      designation: b.articles?.designation ?? "—",
+      reference: b.articles?.reference ?? "",
+      quantite: 0,
+      chantiers: new Map<string, { libelle: string; date_prevue: string | null; urgent: boolean }>(),
     };
-    cur.lignes.push(b);
-    parChantier.set(b.chantier_id, cur);
+    cur.quantite += Number(b.quantite);
+    const pose = b.chantiers?.date_prevue ?? null;
+    const urgent = pose != null && pose < seuilUrgence;
+    if (!cur.chantiers.has(b.chantier_id)) {
+      cur.chantiers.set(b.chantier_id, {
+        libelle: b.chantiers?.libelle ?? "—", date_prevue: pose, urgent,
+      });
+    }
+    parArticle.set(b.article_id, cur);
   }
+
+  const lignes: LigneArticle[] = [...parArticle.entries()]
+    .map(([article_id, a]) => {
+      const chantiers = [...a.chantiers.values()];
+      const reassort = reassortMap.get(article_id);
+      const delaiLong = voitPrix && reassort ? Number(reassort.delai_livraison_jours) > 7 : false;
+      return {
+        article_id,
+        designation: a.designation,
+        reference: a.reference,
+        quantite: a.quantite,
+        chantiers,
+        urgence: chantiers.some((c) => c.urgent),
+        rupture: (prevMap.get(article_id) ?? 0) <= 0,
+        delaiLong,
+        fournisseur: voitPrix && reassort
+          ? {
+              id: reassort.fournisseur_id,
+              nom: reassort.fournisseur_nom,
+              prix: reassort.prix != null ? Number(reassort.prix) : null,
+              delai: reassort.delai_livraison_jours != null ? Number(reassort.delai_livraison_jours) : null,
+            }
+          : null,
+      } satisfies LigneArticle;
+    })
+    .sort((x, y) => x.designation.localeCompare(y.designation));
+
   const enCours = besoins.filter((b) => b.statut === "commande");
 
   return (
@@ -49,97 +111,41 @@ export default async function ACommanderPage() {
       <SousOnglets onglets={ongletsUnivers("achats", profil.role)} />
       <EnTetePage
         titre="À commander"
-        description="Passerelle planning → achats : encoder les besoins matériel des chantiers, croiser avec le stock, et générer les commandes des manquants."
+        description="Vue consolidée par article, tous chantiers confondus : regroupe les besoins, désigne le fournisseur le moins cher et génère les commandes."
       />
 
       <p className="mb-6 rounded-md border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
-        Les besoins proviennent du matériel déclaré sur les chantiers.
+        Cochez les articles à commander, puis générez une commande par fournisseur.
+        Un article est signalé <span className="font-medium text-red-600">urgent</span> lorsqu&apos;une pose est prévue dans les 7 jours.
       </p>
 
-      {/* Côté achats : besoins à commander groupés par chantier */}
-      <div className="mb-6 space-y-4">
-        {parChantier.size === 0 ? (
-          <Carte><Vide message="Aucun besoin à commander." /></Carte>
-        ) : (
-          [...parChantier.entries()].map(([chantierId, grp]) => {
-            const totalManque = grp.lignes.reduce(
-              (s, b) => s + Math.max(Number(b.quantite) - (stockMap.get(b.article_id) ?? 0), 0), 0);
-            return (
-              <Carte key={chantierId} titre={`${grp.libelle} — ${grp.client}`}>
-                <div className="overflow-x-auto">
-                  <table className="table-base">
-                    <thead>
-                      <tr>
-                        <th>Article</th><th className="text-right">Besoin</th>
-                        <th className="text-right">En stock</th><th className="text-right">À commander</th>
-                        <th>Date besoin</th><th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {grp.lignes.map((b) => {
-                        const stockDispo = stockMap.get(b.article_id) ?? 0;
-                        const enStock = Math.min(Number(b.quantite), stockDispo);
-                        const manque = Math.max(Number(b.quantite) - stockDispo, 0);
-                        return (
-                          <tr key={b.id}>
-                            <td className="font-medium">{b.articles?.designation} <span className="font-mono text-xs text-gray-400">{b.articles?.reference}</span></td>
-                            <td className="text-right">{nombre(b.quantite)}</td>
-                            <td className="text-right text-emerald-600">{nombre(enStock)}</td>
-                            <td className="text-right font-semibold">{manque > 0 ? <Badge couleur="orange">{nombre(manque)}</Badge> : <Badge couleur="vert">0</Badge>}</td>
-                            <td>{dateFr(b.date_besoin)}</td>
-                            <td className="text-right">
-                              <form action={supprimerBesoin}>
-                                <input type="hidden" name="id" value={b.id} />
-                                <button className="text-xs text-red-600 hover:underline">Retirer</button>
-                              </form>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <form action={marquerCommande} className="mt-3 flex flex-wrap items-end gap-2">
-                  <input type="hidden" name="chantier_id" value={chantierId} />
-                  <div>
-                    <label className="etiquette">Fournisseur</label>
-                    <select name="fournisseur_id" required className="champ">
-                      <option value="">— Choisir —</option>
-                      {((fournisseurs as any[]) ?? []).map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
-                    </select>
-                  </div>
-                  <button
-                    className="btn inline-flex bg-emerald-600 text-white hover:bg-emerald-700"
-                    disabled={totalManque === 0}
-                    title={totalManque === 0 ? "Tout est en stock" : ""}
-                  >
-                    ✓ Marquer comme commandé ({nombre(totalManque)} à commander)
-                  </button>
-                </form>
-              </Carte>
-            );
-          })
-        )}
+      <div className="mb-6">
+        <SelectionAchats lignes={lignes} voitPrix={voitPrix} />
       </div>
 
-      {/* Besoins déjà passés en commande */}
+      {/* Besoins déjà passés en commande (lecture) */}
       {enCours.length > 0 && (
         <Carte titre="Besoins commandés (en attente de réception)">
-          <table className="table-base">
-            <thead>
-              <tr><th>Chantier</th><th>Article</th><th className="text-right">Qté</th><th>Statut</th></tr>
-            </thead>
-            <tbody>
-              {enCours.map((b) => (
-                <tr key={b.id}>
-                  <td className="text-gray-500">{b.chantiers?.libelle}</td>
-                  <td className="font-medium">{b.articles?.designation}</td>
-                  <td className="text-right">{nombre(b.quantite)}</td>
-                  <td><Badge couleur="bleu">{LABEL_STATUT_BESOIN[b.statut]}</Badge></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="table-base">
+              <thead>
+                <tr><th>Chantier</th><th>Article</th><th className="text-right">Qté</th><th>Statut</th></tr>
+              </thead>
+              <tbody>
+                {enCours.map((b) => (
+                  <tr key={b.id}>
+                    <td className="text-gray-500">{b.chantiers?.libelle ?? "—"}</td>
+                    <td className="font-medium">
+                      {b.articles?.designation}{" "}
+                      <span className="font-mono text-xs text-gray-400">{b.articles?.reference}</span>
+                    </td>
+                    <td className="text-right">{nombre(b.quantite)}</td>
+                    <td><Badge couleur="bleu">{LABEL_STATUT_BESOIN[b.statut]}</Badge></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Carte>
       )}
     </>

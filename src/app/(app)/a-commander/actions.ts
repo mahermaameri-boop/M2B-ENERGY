@@ -123,3 +123,115 @@ export async function marquerCommande(formData: FormData) {
   revalidatePath("/commandes");
   revalidatePath("/stock");
 }
+
+// Vue consolidée par article : crée UNE commande par fournisseur à partir d'une
+// sélection d'articles (tous chantiers confondus).
+//   formData.lignes = JSON [{ article_id, fournisseur_id }]
+//     fournisseur_id = fournisseur conseillé résolu côté page (Admin) ; si vide,
+//     on prend le rang 1 de vue_reassort côté serveur (le moins cher).
+export async function creerCommandesGroupees(formData: FormData) {
+  const supabase = createClient();
+
+  let demande: { article_id: string; fournisseur_id?: string }[];
+  try {
+    demande = JSON.parse(String(formData.get("lignes") || "[]"));
+  } catch {
+    throw new Error("Sélection invalide.");
+  }
+  demande = (demande ?? []).filter((d) => d && d.article_id);
+  if (demande.length === 0) throw new Error("Aucun article sélectionné.");
+
+  const articleIds = [...new Set(demande.map((d) => d.article_id))];
+
+  // Besoins « à commander » des articles sélectionnés + stock actuel + dernier prix
+  const [{ data: besoinsData }, { data: stock }, { data: prix }] = await Promise.all([
+    supabase.from("besoins_appro")
+      .select("id, article_id, quantite")
+      .eq("statut", "a_commander")
+      .in("article_id", articleIds),
+    supabase.from("vue_stock_actuel").select("article_id, stock").in("article_id", articleIds),
+    supabase.from("vue_dernier_prix").select("article_id, dernier_prix").in("article_id", articleIds),
+  ]);
+  const besoins = (besoinsData as { id: string; article_id: string; quantite: number }[]) ?? [];
+  if (besoins.length === 0) throw new Error("Aucun besoin à commander pour cette sélection.");
+
+  const stockMap = new Map(((stock as any[]) ?? []).map((s) => [s.article_id, Number(s.stock)]));
+  const prixMap = new Map(((prix as any[]) ?? []).map((p) => [p.article_id, Number(p.dernier_prix)]));
+
+  // Fournisseur conseillé par article : d'abord celui fourni par la page, sinon
+  // le rang 1 de vue_reassort (le moins cher) résolu ici.
+  const fournisseurParArticle = new Map<string, string>();
+  for (const d of demande) if (d.fournisseur_id) fournisseurParArticle.set(d.article_id, d.fournisseur_id);
+  const aResoudre = articleIds.filter((id) => !fournisseurParArticle.has(id));
+  if (aResoudre.length > 0) {
+    const { data: reassort } = await supabase
+      .from("vue_reassort")
+      .select("article_id, fournisseur_id, rang")
+      .eq("rang", 1)
+      .in("article_id", aResoudre);
+    for (const r of (reassort as any[]) ?? []) fournisseurParArticle.set(r.article_id, r.fournisseur_id);
+  }
+
+  // Manquants par article = Σ max(quantite - stock_actuel, 0) sur ses besoins
+  const manquantParArticle = new Map<string, number>();
+  const besoinsParArticle = new Map<string, string[]>();
+  for (const b of besoins) {
+    const manque = Math.max(Number(b.quantite) - (stockMap.get(b.article_id) ?? 0), 0);
+    if (manque <= 0) continue;
+    manquantParArticle.set(b.article_id, (manquantParArticle.get(b.article_id) ?? 0) + manque);
+    const arr = besoinsParArticle.get(b.article_id) ?? [];
+    arr.push(b.id);
+    besoinsParArticle.set(b.article_id, arr);
+  }
+
+  // On ne retient que les articles à manquant > 0 dont le fournisseur est connu
+  const parFournisseur = new Map<string, string[]>();
+  for (const article_id of manquantParArticle.keys()) {
+    const fournisseur_id = fournisseurParArticle.get(article_id);
+    if (!fournisseur_id) continue;
+    const arr = parFournisseur.get(fournisseur_id) ?? [];
+    arr.push(article_id);
+    parFournisseur.set(fournisseur_id, arr);
+  }
+  if (parFournisseur.size === 0) {
+    throw new Error("Rien à commander : tout est en stock ou aucun fournisseur n'est connu pour ces articles.");
+  }
+
+  // Numérotation continue (même schéma que marquerCommande), incrémentée par commande créée
+  const annee = new Date().getFullYear();
+  const { count } = await supabase.from("commandes").select("id", { count: "exact", head: true });
+  let seq = count ?? 0;
+
+  // Une commande par fournisseur, une ligne par article
+  for (const [fournisseur_id, arts] of parFournisseur) {
+    seq += 1;
+    const numero = `CMD-${annee}-${String(seq).padStart(4, "0")}`;
+
+    const { data: commande } = await supabase
+      .from("commandes")
+      .insert({ numero, fournisseur_id, date_commande: today(), statut: "brouillon",
+        notes: "Créée depuis « À commander » (consolidé par article)" })
+      .select("id").single();
+    if (!commande) throw new Error("Création de la commande impossible.");
+
+    await supabase.from("commande_lignes").insert(
+      arts.map((article_id) => ({
+        commande_id: commande.id,
+        article_id,
+        quantite: manquantParArticle.get(article_id) ?? 0,
+        prix_unitaire: prixMap.get(article_id) ?? 0,
+      })),
+    );
+
+    const besoinIds = arts.flatMap((a) => besoinsParArticle.get(a) ?? []);
+    if (besoinIds.length > 0) {
+      await supabase.from("besoins_appro")
+        .update({ statut: "commande", commande_id: commande.id })
+        .in("id", besoinIds);
+    }
+  }
+
+  revalidatePath("/a-commander");
+  revalidatePath("/commandes");
+  revalidatePath("/stock");
+}
