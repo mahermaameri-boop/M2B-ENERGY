@@ -95,3 +95,59 @@ export function LienBouton({ href, children }: { href: string; children: ReactNo
     </Link>
   );
 }
+
+// Bande secondaire (KPIs, sous-blocs)
+export function Bande({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={`rounded-xl bg-gray-50 p-3 ${className}`}>{children}</div>;
+}
+
+// Carte « à traiter » : grand compteur cliquable vers l'écran concerné.
+const COULEURS_ACTION: Record<string, string> = {
+  bleu: "bg-brand-50 text-brand-700 hover:bg-brand-100",
+  orange: "bg-amber-100 text-amber-800 hover:bg-amber-200",
+  vert: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200",
+  rouge: "bg-red-100 text-red-800 hover:bg-red-200",
+  gris: "bg-gray-100 text-gray-700 hover:bg-gray-200",
+};
+export function CarteAction({
+  libelle, compteur, href, couleur = "bleu",
+}: {
+  libelle: string; compteur: number; href: string; couleur?: keyof typeof COULEURS_ACTION;
+}) {
+  return (
+    <Link href={href} className={`flex items-center justify-between rounded-xl p-4 transition-colors ${COULEURS_ACTION[couleur]}`}>
+      <div>
+        <div className="text-2xl font-semibold tracking-tight">{compteur}</div>
+        <div className="text-sm font-medium">{libelle}</div>
+      </div>
+      <span className="text-lg opacity-60">→</span>
+    </Link>
+  );
+}
+
+// Pipeline horizontal (étapes du chantier).
+export interface EtapePipeline { cle: string; libelle: string }
+export function Stepper({ etapes, courante }: { etapes: EtapePipeline[]; courante: string }) {
+  const idx = Math.max(0, etapes.findIndex((e) => e.cle === courante));
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {etapes.map((e, i) => {
+        const fait = i < idx;
+        const actuel = i === idx;
+        const cls = actuel
+          ? "bg-brand-50 text-brand-700 font-medium ring-1 ring-inset ring-brand-200"
+          : fait
+          ? "text-emerald-700"
+          : "text-gray-400";
+        return (
+          <span key={e.cle} className="flex items-center gap-1.5">
+            <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs ${cls}`}>
+              {fait ? "✓ " : ""}{e.libelle}
+            </span>
+            {i < etapes.length - 1 && <span className="text-gray-300">›</span>}
+          </span>
+        );
+      })}
+    </div>
+  );
+}

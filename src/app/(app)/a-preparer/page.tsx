@@ -1,6 +1,8 @@
 import { requireProfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { SelecteurDate } from "@/components/selecteur-date";
 import { dateFr, dateISO, nombre } from "@/lib/format";
 import { validerPreparation } from "./actions";
@@ -25,7 +27,7 @@ export default async function APreparerPage({
 }: {
   searchParams: { date?: string };
 }) {
-  await requireProfil();
+  const profil = await requireProfil();
   const supabase = createClient();
 
   // Date par défaut = lendemain (aujourd'hui + 1 jour), au format aaaa-mm-jj.
@@ -80,6 +82,7 @@ export default async function APreparerPage({
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("atelier", profil.role)} />
       <EnTetePage
         titre="À préparer"
         description="Étape atelier : préparer la composition des chantiers avant sortie, valider la préparation et imprimer les étiquettes."

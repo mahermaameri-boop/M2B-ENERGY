@@ -1,6 +1,8 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { euro, nombre, dateFr, dateISO } from "@/lib/format";
 import {
   creerFournisseur, modifierFournisseur, supprimerFournisseur,
@@ -21,7 +23,7 @@ interface Reassort {
 const SEUIL_DELAI = 7; // drapeau prix/délai (Étape 2), affiché à titre indicatif
 
 export default async function FournisseursPage() {
-  await requireRole(["admin"]);
+  const profil = await requireRole(["admin"]);
   const supabase = createClient();
 
   const [{ data: fournisseurs }, { data: articles }, { data: reassort }, { data: prevRupture }] =
@@ -46,6 +48,7 @@ export default async function FournisseursPage() {
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("achats", profil.role)} />
       <EnTetePage
         titre="Fournisseurs & prix"
         description="Fiches fournisseurs, historique des prix et ordre d'appel au réassort (du moins cher au plus cher)."

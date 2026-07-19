@@ -1,6 +1,8 @@
 import { requireProfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { euro, nombre, pourcentage, dateFr } from "@/lib/format";
 import { LABEL_STATUT_CHANTIER } from "@/lib/types";
 
@@ -52,6 +54,7 @@ export default async function HistoriquePage() {
   if (ids.length === 0) {
     return (
       <>
+        <SousOnglets onglets={ongletsUnivers("marges", profil.role)} />
         <EnTetePage
           titre="Historique"
           description="Chantiers réalisés : matériel posé, fournisseurs et rentabilité."
@@ -124,6 +127,7 @@ export default async function HistoriquePage() {
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("marges", profil.role)} />
       <EnTetePage
         titre="Historique"
         description="Chantiers réalisés : matériel posé, fournisseurs et rentabilité."

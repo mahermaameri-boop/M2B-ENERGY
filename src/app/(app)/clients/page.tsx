@@ -1,6 +1,8 @@
 import { requireProfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Carte, EnTetePage } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import type { Client, Chantier } from "@/lib/types";
 import { ClientsTable } from "./clients-table";
 import {
@@ -62,6 +64,7 @@ export default async function ClientsPage() {
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("chantiers", profil.role)} />
       <EnTetePage
         titre={voitCa ? "Clients & chantiers" : "Clients"}
         description={

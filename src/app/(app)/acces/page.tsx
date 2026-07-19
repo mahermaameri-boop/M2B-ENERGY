@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SUPABASE_SERVICE_KEY } from "@/lib/supabase/env";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { dateFr } from "@/lib/format";
 import { LABEL_ROLE, type Profil, type Role } from "@/lib/types";
 import { changerRole, inviterCollaborateur } from "./actions";
@@ -12,7 +14,7 @@ export const dynamic = "force-dynamic";
 const ROLES: Role[] = ["admin", "collaborateur"];
 
 export default async function AccesPage() {
-  await requireRole(["admin"]);
+  const profil = await requireRole(["admin"]);
   const supabase = createClient();
 
   const { data: profilsData } = await supabase
@@ -39,6 +41,7 @@ export default async function AccesPage() {
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("reglages", profil.role)} />
       <EnTetePage
         titre="Rôles & accès"
         description="Gérez les collaborateurs, leurs rôles et invitez de nouveaux comptes."

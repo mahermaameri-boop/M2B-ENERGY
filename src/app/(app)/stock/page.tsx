@@ -1,6 +1,8 @@
 import { requireProfil, peutVoirPrix } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { SelecteurDate } from "@/components/selecteur-date";
 import { euro, nombre, dateFr, dateISO } from "@/lib/format";
 import { ExportStock } from "./export-stock";
@@ -54,6 +56,7 @@ export default async function StockPage({
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("atelier", profil.role)} />
       <EnTetePage
         titre="Stock"
         description="Stock actuel, valorisation et prévisionnel. Les alertes se calculent sur le prévisionnel."

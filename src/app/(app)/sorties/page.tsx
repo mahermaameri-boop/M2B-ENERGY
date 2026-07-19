@@ -1,13 +1,15 @@
 import { requireProfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { nombre, dateFr, dateISO } from "@/lib/format";
 import { SortieForm } from "./sortie-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function SortiesPage() {
-  await requireProfil();
+  const profil = await requireProfil();
   const supabase = createClient();
 
   const [{ data: chantiers }, { data: reservations }, { data: bons }] =
@@ -50,6 +52,7 @@ export default async function SortiesPage() {
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("atelier", profil.role)} />
       <EnTetePage
         titre="Sorties & bons de sortie"
         description="La sortie part d'un chantier planifié et de sa composition. Réservations déduites du prévisionnel."

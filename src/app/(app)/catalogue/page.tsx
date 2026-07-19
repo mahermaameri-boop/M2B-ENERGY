@@ -1,6 +1,8 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { nombre } from "@/lib/format";
 import type { Article } from "@/lib/types";
 import { CatalogueTable } from "./catalogue-table";
@@ -25,7 +27,7 @@ interface LigneComposition {
 }
 
 export default async function CataloguePage() {
-  await requireRole(["admin", "collaborateur"]);
+  const profil = await requireRole(["admin", "collaborateur"]);
   const supabase = createClient();
 
   const [{ data: articles }, { data: compositions }, { data: lignes }] = await Promise.all([
@@ -68,6 +70,7 @@ export default async function CataloguePage() {
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("reglages", profil.role)} />
       <EnTetePage
         titre="Catalogue & compositions"
         description="Gestion des articles et des nomenclatures (produits finis et leurs composants)."

@@ -1,6 +1,8 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, CarteStat, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { euro, pourcentage } from "@/lib/format";
 import { ExportMarges } from "./export-marges";
 
@@ -36,7 +38,7 @@ function Montant({ valeur }: { valeur: number }) {
 }
 
 export default async function MargesPage() {
-  await requireRole(["admin"]);
+  const profil = await requireRole(["admin"]);
   const supabase = createClient();
 
   const [{ data: chantiersData }, { data: clientsData }, { data: clientsListe }] =
@@ -71,6 +73,7 @@ export default async function MargesPage() {
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("marges", profil.role)} />
       <EnTetePage
         titre="Marges"
         description="Rentabilité par chantier et par client (accès administrateur)."

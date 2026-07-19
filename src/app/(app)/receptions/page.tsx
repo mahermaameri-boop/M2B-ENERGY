@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireProfil, peutVoirPrix } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { dateFr, dateISO } from "@/lib/format";
 import { LABEL_STATUT_COMMANDE, type StatutCommande } from "@/lib/types";
 import { EntreeManuelleForm } from "./entree-manuelle-form";
@@ -45,6 +47,7 @@ export default async function ReceptionsPage() {
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("achats", profil.role)} />
       <EnTetePage
         titre="Réceptions"
         description="Réceptionner une commande (totale ou partielle) ou enregistrer une entrée de stock manuelle."

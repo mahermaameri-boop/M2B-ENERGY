@@ -1,6 +1,8 @@
 import { requireProfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { dateFr } from "@/lib/format";
 import { PlanningCalendar, type JourPlanning, type InterventionPlanning } from "./planning-calendar";
 
@@ -24,7 +26,7 @@ export default async function PlanningPage({
 }: {
   searchParams?: { offset?: string };
 }) {
-  await requireProfil();
+  const profil = await requireProfil();
   const supabase = createClient();
 
   // --- Semaine affichée : lundi de la semaine courante + offset (en semaines) ---
@@ -149,6 +151,7 @@ export default async function PlanningPage({
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("chantiers", profil.role)} />
       <EnTetePage
         titre="Planning"
         description="Agenda hebdomadaire des chantiers. Glissez une intervention d'un jour à l'autre pour la replanifier."

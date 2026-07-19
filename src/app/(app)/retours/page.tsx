@@ -1,6 +1,8 @@
 import { requireProfil, peutVoirCa } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { nombre, euro, dateFr, dateISO } from "@/lib/format";
 import { LABEL_TYPE_RETOUR, type TypeRetour } from "@/lib/types";
 import { RetourForm } from "./retour-form";
@@ -30,6 +32,7 @@ export default async function RetoursPage() {
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("sav", profil.role)} />
       <EnTetePage
         titre="Retours"
         description="Trois types distincts : retour chantier (réintégration), défectueux / SAV (garantie), annulation de commande (avoir)."

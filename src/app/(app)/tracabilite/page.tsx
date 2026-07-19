@@ -1,6 +1,8 @@
 import { requireProfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
 import { dateFr } from "@/lib/format";
 import {
   LABEL_STATUT_SERIE,
@@ -47,7 +49,7 @@ export default async function TracabilitePage({
 }: {
   searchParams: { q?: string };
 }) {
-  await requireProfil();
+  const profil = await requireProfil();
   const supabase = createClient();
 
   const q = (searchParams.q ?? "").trim();
@@ -87,6 +89,7 @@ export default async function TracabilitePage({
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("sav", profil.role)} />
       <EnTetePage
         titre="Traçabilité SAV"
         description="Recherchez un numéro de série pour afficher sa fiche complète : article, origine, client et historique des mouvements."

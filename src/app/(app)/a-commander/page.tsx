@@ -1,9 +1,11 @@
 import { requireProfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
-import { nombre, dateFr, dateISO } from "@/lib/format";
+import { SousOnglets } from "@/components/sous-onglets";
+import { ongletsUnivers } from "@/lib/navigation";
+import { nombre, dateFr } from "@/lib/format";
 import { LABEL_STATUT_BESOIN, type StatutBesoin } from "@/lib/types";
-import { creerBesoin, supprimerBesoin, marquerCommande } from "./actions";
+import { supprimerBesoin, marquerCommande } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,36 +17,20 @@ interface Besoin {
 }
 
 export default async function ACommanderPage() {
-  await requireProfil();
+  const profil = await requireProfil();
   const supabase = createClient();
 
-  const [{ data: besoinsData }, { data: stock }, { data: fournisseurs }, { data: chantiers }, { data: articles }, { data: compositions }] =
+  const [{ data: besoinsData }, { data: stock }, { data: fournisseurs }] =
     await Promise.all([
       supabase.from("besoins_appro")
         .select("id, chantier_id, article_id, quantite, date_besoin, statut, commande_id, articles(reference, designation), chantiers(libelle, clients(nom))")
         .order("date_besoin"),
       supabase.from("vue_stock_actuel").select("article_id, stock"),
       supabase.from("fournisseurs").select("id, nom").order("nom"),
-      supabase.from("chantiers").select("id, libelle, clients(nom)").order("libelle"),
-      supabase.from("articles").select("id, reference, designation, compose").eq("actif", true).order("designation"),
-      supabase.from("compositions").select("id, article_fini_id, nom_variante").order("nom_variante"),
     ]);
 
   const besoins = (besoinsData as unknown as Besoin[]) ?? [];
   const stockMap = new Map(((stock as any[]) ?? []).map((s) => [s.article_id, Number(s.stock)]));
-  const chantiersIn = ((chantiers as any[]) ?? []).map((c) => ({ id: c.id, libelle: c.libelle, client_nom: c.clients?.nom ?? "—" }));
-  const articlesIn = (articles as any[]) ?? [];
-  const articleParId = new Map(articlesIn.map((a) => [a.id, a]));
-
-  // Variantes regroupées par produit fini ; on ne propose le choix que pour les
-  // produits ayant au moins deux variantes (une seule = décomposition implicite).
-  const variantesParFini = new Map<string, { id: string; nom_variante: string }[]>();
-  for (const c of ((compositions as any[]) ?? [])) {
-    const arr = variantesParFini.get(c.article_fini_id) ?? [];
-    arr.push({ id: c.id, nom_variante: c.nom_variante });
-    variantesParFini.set(c.article_fini_id, arr);
-  }
-  const finisMultiVariantes = [...variantesParFini.entries()].filter(([, v]) => v.length >= 2);
 
   // Regroupe les besoins « à commander » par chantier
   const aCommander = besoins.filter((b) => b.statut === "a_commander");
@@ -60,72 +46,15 @@ export default async function ACommanderPage() {
 
   return (
     <>
+      <SousOnglets onglets={ongletsUnivers("achats", profil.role)} />
       <EnTetePage
         titre="À commander"
         description="Passerelle planning → achats : encoder les besoins matériel des chantiers, croiser avec le stock, et générer les commandes des manquants."
       />
 
-      {/* Côté planning : encoder un besoin */}
-      <div className="mb-6">
-        <Carte titre="Encoder un besoin (planning)">
-          {chantiersIn.length === 0 ? (
-            <Vide message="Créez d'abord un client et un chantier (module Clients & chantiers)." />
-          ) : (
-            <form action={creerBesoin} className="grid grid-cols-1 gap-4 sm:grid-cols-5">
-              <div className="sm:col-span-2">
-                <label className="etiquette">Chantier / client</label>
-                <select name="chantier_id" required className="champ">
-                  {chantiersIn.map((c) => <option key={c.id} value={c.id}>{c.libelle} — {c.client_nom}</option>)}
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="etiquette">Matériel (article ou produit composé)</label>
-                <select name="article_id" required className="champ">
-                  {articlesIn.map((a) => (
-                    <option key={a.id} value={a.id}>{a.reference} — {a.designation}{a.compose ? " (composé)" : ""}</option>
-                  ))}
-                </select>
-              </div>
-              {finisMultiVariantes.length > 0 && (
-                <div className="sm:col-span-2">
-                  <label className="etiquette">Variante (produits composés)</label>
-                  <select name="composition_id" className="champ" defaultValue="">
-                    <option value="">Automatique (Standard)</option>
-                    {finisMultiVariantes.map(([finiId, vars]) => {
-                      const art = articleParId.get(finiId);
-                      return (
-                        <optgroup key={finiId} label={art ? `${art.reference} — ${art.designation}` : "Produit composé"}>
-                          {vars.map((v) => (
-                            <option key={v.id} value={v.id}>{v.nom_variante}</option>
-                          ))}
-                        </optgroup>
-                      );
-                    })}
-                  </select>
-                </div>
-              )}
-              <div>
-                <label className="etiquette">Quantité</label>
-                <input name="quantite" type="number" min="1" defaultValue={1} className="champ" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="etiquette">Date de besoin</label>
-                <input name="date_besoin" type="date" defaultValue={dateISO()} className="champ" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="etiquette">Notes</label>
-                <input name="notes" className="champ" />
-              </div>
-              <div className="flex items-end">
-                <button className="btn-primaire w-full">Ajouter le besoin</button>
-              </div>
-            </form>
-          )}
-          <p className="mt-2 text-xs text-gray-400">
-            Un produit composé est automatiquement décomposé en composants via sa nomenclature.
-          </p>
-        </Carte>
-      </div>
+      <p className="mb-6 rounded-md border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
+        Les besoins proviennent du matériel déclaré sur les chantiers.
+      </p>
 
       {/* Côté achats : besoins à commander groupés par chantier */}
       <div className="mb-6 space-y-4">
