@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, Badge, Vide } from "@/components/ui";
 import { SelecteurDate } from "@/components/selecteur-date";
 import { euro, nombre, dateFr, dateISO } from "@/lib/format";
+import { ExportStock } from "./export-stock";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,18 @@ export default async function StockPage({
               <span className="text-sm text-gray-500">Valeur totale du stock (au dernier prix d'achat)</span>
               <span className="text-xl font-semibold text-gray-900">{euro(valeurTotale)}</span>
             </div>
+          </Carte>
+        </div>
+      )}
+
+      {voitPrix && (
+        <div className="mb-4">
+          <Carte titre="Export (valeur du stock)">
+            <p className="mb-3 text-sm text-gray-500">
+              Exporter l&apos;inventaire valorisé à une date donnée (stock, dernier prix
+              d&apos;achat, valeur).
+            </p>
+            <ExportStock />
           </Carte>
         </div>
       )}

@@ -8,35 +8,31 @@ import { EtiquettesPDF, type DonneesEtiquettes, type Unite } from "@/components/
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Étiquettes générées à la préparation d'un chantier (module « À préparer »),
+// à partir de sa composition réservée (une étiquette par unité).
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new NextResponse("Non autorisé", { status: 401 });
 
-  const { data: bon } = await supabase
-    .from("bons_de_sortie")
-    .select("id, numero, chantiers(date_prevue, clients(nom))")
+  const { data: chantier } = await supabase
+    .from("chantiers")
+    .select("id, date_prevue, clients(nom)")
     .eq("id", params.id)
     .single();
-  if (!bon) return new NextResponse("Bon introuvable", { status: 404 });
+  if (!chantier) return new NextResponse("Chantier introuvable", { status: 404 });
 
-  // Une étiquette par unité physique : chaque n° de série = 1 ; chaque ligne
-  // non sérialisée de quantité q = q étiquettes.
-  const [{ data: series }, { data: mouvements }] = await Promise.all([
-    supabase.from("numeros_serie").select("id").eq("bon_de_sortie_id", params.id),
-    supabase.from("mouvements_stock").select("quantite")
-      .eq("reference", params.id).eq("type", "sortie").is("numero_serie_id", null),
-  ]);
-
-  let n = ((series as any[]) ?? []).length;
-  for (const m of (mouvements as any[]) ?? []) n += Math.abs(Number(m.quantite));
+  // Unités = quantités réservées (matériel mis de côté) pour ce chantier
+  const { data: resa } = await supabase
+    .from("reservations").select("quantite").eq("chantier_id", params.id).eq("statut", "reserve");
+  let n = 0;
+  for (const r of (resa as any[]) ?? []) n += Math.abs(Number(r.quantite));
   if (n === 0) n = 1;
 
   const unites: Unite[] = Array.from({ length: n }, (_, i) => ({ index: i + 1, total: n }));
-  const chantier = (bon as any).chantiers;
   const donnees: DonneesEtiquettes = {
-    client: chantier?.clients?.nom ?? "—",
-    date_installation: dateFr(chantier?.date_prevue),
+    client: (chantier as any).clients?.nom ?? "—",
+    date_installation: dateFr(chantier.date_prevue),
     unites,
   };
 
@@ -44,7 +40,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${bon.numero}.pdf"`,
+      "Content-Disposition": `inline; filename="etiquettes-chantier.pdf"`,
     },
   });
 }

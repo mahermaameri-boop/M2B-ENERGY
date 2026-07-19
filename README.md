@@ -88,6 +88,7 @@ Migrations SQL dans `supabase/migrations/` :
 | `0004_seed.sql`           | Données de démonstration |
 | `0005_alignement_2roles.sql` | Passage à 2 rôles, `articles.compose`, table `besoins_appro` (À commander), RLS ajustée |
 | `0006_prix_categories_historique.sql` | Prix depuis les commandes, catégories fermées (5 valeurs), statut chantier `planifie`/`realise`, coût sous-traitance nullable (relance), vues de marge |
+| `0007_chantier_lignes_variantes.sql` | Le chantier porte sa composition (`chantier_lignes`), variantes de nomenclature (`compositions.nom_variante`), état de préparation (`chantiers.prepare_le`), index de performance |
 
 Pour une **nouvelle installation**, exécutez simplement `supabase/schema_complet.sql`
 (il regroupe 0001 → 0006). Pour **mettre à jour une base déjà installée**, exécutez la

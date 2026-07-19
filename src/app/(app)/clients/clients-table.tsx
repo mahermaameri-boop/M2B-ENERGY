@@ -28,6 +28,8 @@ type LigneChantier = {
 
 type ArticleLite = { id: string; reference: string; designation: string };
 
+type CompositionLite = { id: string; article_fini_id: string; nom_variante: string };
+
 const STATUTS: { valeur: string; label: string }[] = [
   { valeur: "planifie", label: "Planifié" },
   { valeur: "realise", label: "Réalisé" },
@@ -55,6 +57,7 @@ export function ClientsTable({
   chantiers,
   lignes,
   articles,
+  compositions,
   voitCa,
   creerClient,
   modifierClient,
@@ -69,6 +72,7 @@ export function ClientsTable({
   chantiers: ChantierLite[];
   lignes: LigneChantier[];
   articles: ArticleLite[];
+  compositions: CompositionLite[];
   voitCa: boolean;
   creerClient: Action;
   modifierClient: Action;
@@ -112,6 +116,17 @@ export function ClientsTable({
     for (const a of articles) m.set(a.id, a);
     return m;
   }, [articles]);
+
+  // Variantes de composition regroupées par produit fini (pour l'encodage).
+  const variantesParFini = useMemo(() => {
+    const m = new Map<string, CompositionLite[]>();
+    for (const c of compositions) {
+      const arr = m.get(c.article_fini_id) ?? [];
+      arr.push(c);
+      m.set(c.article_fini_id, arr);
+    }
+    return m;
+  }, [compositions]);
 
   // Wrappers : appellent la Server Action puis referment l'UI concernée.
   async function envoyerCreationClient(formData: FormData) {
@@ -250,6 +265,7 @@ export function ClientsTable({
                     colsChantier={colsChantier}
                     articles={articles}
                     articleParId={articleParId}
+                    variantesParFini={variantesParFini}
                     lignesParChantier={lignesParChantier}
                     creationChantierOuverte={creationChantierPour.has(client.id)}
                     editionChantierId={editionChantierId}
@@ -286,6 +302,7 @@ function ClientRows({
   colsChantier,
   articles,
   articleParId,
+  variantesParFini,
   lignesParChantier,
   creationChantierOuverte,
   editionChantierId,
@@ -311,6 +328,7 @@ function ClientRows({
   colsChantier: number;
   articles: ArticleLite[];
   articleParId: Map<string, ArticleLite>;
+  variantesParFini: Map<string, CompositionLite[]>;
   lignesParChantier: Map<string, LigneChantier[]>;
   creationChantierOuverte: boolean;
   editionChantierId: string | null;
@@ -430,6 +448,7 @@ function ClientRows({
                           colsChantier={colsChantier}
                           articles={articles}
                           articleParId={articleParId}
+                          variantesParFini={variantesParFini}
                           lignes={lignesParChantier.get(ch.id) ?? []}
                           enEdition={editionChantierId === ch.id}
                           deplie={chantiersDeplies.has(ch.id)}
@@ -460,6 +479,7 @@ function ChantierRows({
   colsChantier,
   articles,
   articleParId,
+  variantesParFini,
   lignes,
   enEdition,
   deplie,
@@ -476,6 +496,7 @@ function ChantierRows({
   colsChantier: number;
   articles: ArticleLite[];
   articleParId: Map<string, ArticleLite>;
+  variantesParFini: Map<string, CompositionLite[]>;
   lignes: LigneChantier[];
   enEdition: boolean;
   deplie: boolean;
@@ -489,6 +510,11 @@ function ChantierRows({
 }) {
   const ch = chantier;
   const formId = `edit-chantier-${ch.id}`;
+
+  // Article sélectionné dans le formulaire d'ajout de matériel (pour proposer
+  // la variante quand le produit composé en a plusieurs).
+  const [articleSel, setArticleSel] = useState<string>(articles[0]?.id ?? "");
+  const variantes = variantesParFini.get(articleSel) ?? [];
 
   if (enEdition) {
     return (
@@ -597,11 +623,27 @@ function ChantierRows({
                 <input type="hidden" name="chantier_id" value={ch.id} />
                 <div className="sm:col-span-2">
                   <label className="etiquette">Article</label>
-                  <select name="article_id" required className="champ">
+                  <select
+                    name="article_id"
+                    required
+                    className="champ"
+                    value={articleSel}
+                    onChange={(e) => setArticleSel(e.target.value)}
+                  >
                     {articles.map((a) => (
                       <option key={a.id} value={a.id}>{a.reference} — {a.designation}</option>
                     ))}
                   </select>
+                  {variantes.length >= 2 && (
+                    <div className="mt-2">
+                      <label className="etiquette">Variante</label>
+                      <select name="composition_id" className="champ">
+                        {variantes.map((v) => (
+                          <option key={v.id} value={v.id}>{v.nom_variante}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="etiquette">Quantité</label>

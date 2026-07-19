@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 interface Composition {
   id: string;
   article_fini_id: string;
+  nom_variante: string;
 }
 
 interface LigneComposition {
@@ -33,7 +34,7 @@ export default async function CataloguePage() {
       .select("id, reference, designation, categorie, unite, serialise, compose, seuil_manuel, actif")
       .order("categorie")
       .order("designation"),
-    supabase.from("compositions").select("id, article_fini_id"),
+    supabase.from("compositions").select("id, article_fini_id, nom_variante").order("nom_variante"),
     supabase
       .from("composition_lignes")
       .select("id, composition_id, article_composant_id, quantite"),
@@ -53,9 +54,17 @@ export default async function CataloguePage() {
     lignesParComposition.set(l.composition_id, arr);
   }
 
-  // Articles finis n'ayant pas encore de composition (pour le formulaire de création).
-  const composesSet = new Set(listeCompositions.map((c) => c.article_fini_id));
-  const articlesSansComposition = listeArticles.filter((a) => !composesSet.has(a.id));
+  // Variantes regroupées par produit fini.
+  const compositionsParFini = new Map<string, Composition[]>();
+  for (const c of listeCompositions) {
+    const arr = compositionsParFini.get(c.article_fini_id) ?? [];
+    arr.push(c);
+    compositionsParFini.set(c.article_fini_id, arr);
+  }
+  // Produits composés (compose=true) : on peut leur créer plusieurs variantes.
+  const articlesComposes = listeArticles.filter((a) => a.compose);
+  // Produits finis ayant au moins une variante, dans l'ordre du catalogue.
+  const finisAvecVariantes = articlesComposes.filter((a) => compositionsParFini.has(a.id));
 
   return (
     <>
@@ -77,103 +86,120 @@ export default async function CataloguePage() {
 
       <Carte titre="Compositions (nomenclature)">
         <details className="mb-4">
-          <summary className="btn-secondaire w-fit cursor-pointer">+ Nouvelle composition</summary>
-          {articlesSansComposition.length === 0 ? (
+          <summary className="btn-secondaire w-fit cursor-pointer">+ Nouvelle variante</summary>
+          {articlesComposes.length === 0 ? (
             <p className="mt-4 text-sm text-gray-400">
-              Tous les articles disposent déjà d&apos;une composition.
+              Aucun produit composé. Cochez « composé » sur un article pour lui définir des variantes.
             </p>
           ) : (
             <form action={creerComposition} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="etiquette">Article fini</label>
+              <div>
+                <label className="etiquette">Produit fini</label>
                 <select name="article_fini_id" required className="champ">
-                  {articlesSansComposition.map((a) => (
+                  {articlesComposes.map((a) => (
                     <option key={a.id} value={a.id}>{a.reference} — {a.designation}</option>
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="etiquette">Nom de la variante</label>
+                <input name="nom_variante" defaultValue="Standard" className="champ" placeholder="Standard" />
+              </div>
               <div className="sm:col-span-2">
-                <button className="btn-primaire">Créer la composition</button>
+                <button className="btn-primaire">Créer la variante</button>
               </div>
             </form>
           )}
         </details>
 
-        {listeCompositions.length === 0 ? (
+        {finisAvecVariantes.length === 0 ? (
           <Vide message="Aucune composition." />
         ) : (
-          <div className="space-y-4">
-            {listeCompositions.map((comp) => {
-              const fini = articleParId.get(comp.article_fini_id);
-              const lignesComp = lignesParComposition.get(comp.id) ?? [];
-              const composantsPossibles = listeArticles.filter((a) => a.id !== comp.article_fini_id);
+          <div className="space-y-6">
+            {finisAvecVariantes.map((fini) => {
+              const variantes = compositionsParFini.get(fini.id) ?? [];
+              const composantsPossibles = listeArticles.filter((a) => a.id !== fini.id);
               return (
-                <div key={comp.id} className="rounded-md border border-gray-200 p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{fini?.designation ?? "Article inconnu"}</span>
-                      {fini && <span className="font-mono text-xs text-gray-400">{fini.reference}</span>}
-                    </div>
-                    <form action={supprimerComposition}>
-                      <input type="hidden" name="id" value={comp.id} />
-                      <button className="btn-danger text-xs">Supprimer la composition</button>
-                    </form>
+                <div key={fini.id} className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{fini.designation}</span>
+                    <span className="font-mono text-xs text-gray-400">{fini.reference}</span>
+                    <span className="text-xs text-gray-400">
+                      {variantes.length} variante{variantes.length > 1 ? "s" : ""}
+                    </span>
                   </div>
 
-                  {lignesComp.length === 0 ? (
-                    <Vide message="Aucun composant." />
-                  ) : (
-                    <table className="table-base">
-                      <thead>
-                        <tr>
-                          <th>Composant</th>
-                          <th className="text-right">Quantité</th>
-                          <th className="text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {lignesComp.map((l) => {
-                          const composant = articleParId.get(l.article_composant_id);
-                          return (
-                            <tr key={l.id}>
-                              <td className="font-medium">
-                                {composant?.designation ?? "Article inconnu"}
-                                {composant && (
-                                  <span className="ml-2 font-mono text-xs text-gray-400">{composant.reference}</span>
-                                )}
-                              </td>
-                              <td className="text-right">{nombre(l.quantite)}</td>
-                              <td className="text-right">
-                                <form action={supprimerLigneComposition}>
-                                  <input type="hidden" name="id" value={l.id} />
-                                  <button className="btn-danger text-xs">Supprimer</button>
-                                </form>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
+                  {variantes.map((comp) => {
+                    const lignesComp = lignesParComposition.get(comp.id) ?? [];
+                    return (
+                      <div key={comp.id} className="rounded-md border border-gray-200 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <span className="font-medium">
+                            {fini.designation} — {comp.nom_variante}
+                          </span>
+                          <form action={supprimerComposition}>
+                            <input type="hidden" name="id" value={comp.id} />
+                            <button className="btn-danger text-xs">Supprimer la variante</button>
+                          </form>
+                        </div>
 
-                  <form action={ajouterLigneComposition} className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-4">
-                    <input type="hidden" name="composition_id" value={comp.id} />
-                    <div className="sm:col-span-2">
-                      <label className="etiquette">Composant</label>
-                      <select name="article_composant_id" required className="champ">
-                        {composantsPossibles.map((a) => (
-                          <option key={a.id} value={a.id}>{a.reference} — {a.designation}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="etiquette">Quantité</label>
-                      <input name="quantite" type="number" min="1" step="1" defaultValue={1} className="champ" />
-                    </div>
-                    <div className="flex items-end">
-                      <button className="btn-secondaire w-full">Ajouter la ligne</button>
-                    </div>
-                  </form>
+                        {lignesComp.length === 0 ? (
+                          <Vide message="Aucun composant." />
+                        ) : (
+                          <table className="table-base">
+                            <thead>
+                              <tr>
+                                <th>Composant</th>
+                                <th className="text-right">Quantité</th>
+                                <th className="text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {lignesComp.map((l) => {
+                                const composant = articleParId.get(l.article_composant_id);
+                                return (
+                                  <tr key={l.id}>
+                                    <td className="font-medium">
+                                      {composant?.designation ?? "Article inconnu"}
+                                      {composant && (
+                                        <span className="ml-2 font-mono text-xs text-gray-400">{composant.reference}</span>
+                                      )}
+                                    </td>
+                                    <td className="text-right">{nombre(l.quantite)}</td>
+                                    <td className="text-right">
+                                      <form action={supprimerLigneComposition}>
+                                        <input type="hidden" name="id" value={l.id} />
+                                        <button className="btn-danger text-xs">Supprimer</button>
+                                      </form>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        )}
+
+                        <form action={ajouterLigneComposition} className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-4">
+                          <input type="hidden" name="composition_id" value={comp.id} />
+                          <div className="sm:col-span-2">
+                            <label className="etiquette">Composant</label>
+                            <select name="article_composant_id" required className="champ">
+                              {composantsPossibles.map((a) => (
+                                <option key={a.id} value={a.id}>{a.reference} — {a.designation}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="etiquette">Quantité</label>
+                            <input name="quantite" type="number" min="1" step="1" defaultValue={1} className="champ" />
+                          </div>
+                          <div className="flex items-end">
+                            <button className="btn-secondaire w-full">Ajouter la ligne</button>
+                          </div>
+                        </form>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}

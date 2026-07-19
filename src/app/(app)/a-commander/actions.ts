@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { decomposer } from "@/lib/appro";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -20,26 +21,12 @@ export async function creerBesoin(formData: FormData) {
   const quantite = Number(formData.get("quantite") || 1);
   const date_besoin = String(formData.get("date_besoin") || today());
   const notes = String(formData.get("notes") || "").trim() || null;
+  // Variante choisie (produit composé multi-variantes) ; null => 1re variante.
+  const composition_id = String(formData.get("composition_id") || "").trim() || null;
   if (!chantier_id || !article_id || quantite <= 0) throw new Error("Champs manquants.");
 
-  const { data: article } = await supabase
-    .from("articles").select("id, compose").eq("id", article_id).single();
-
-  let lignes: { article_id: string; quantite: number }[] = [];
-  if (article?.compose) {
-    const { data: compo } = await supabase
-      .from("compositions").select("id").eq("article_fini_id", article_id).maybeSingle();
-    if (compo) {
-      const { data: cl } = await supabase
-        .from("composition_lignes")
-        .select("article_composant_id, quantite")
-        .eq("composition_id", compo.id);
-      lignes = ((cl as any[]) ?? []).map((l) => ({
-        article_id: l.article_composant_id, quantite: Number(l.quantite) * quantite,
-      }));
-    }
-  }
-  if (lignes.length === 0) lignes = [{ article_id, quantite }];
+  // Décompose le produit composé selon la variante ; sinon l'article lui-même.
+  const lignes = await decomposer(supabase, article_id, quantite, composition_id);
 
   // Disponible = stock actuel − réservations déjà en cours (par article)
   const artIds = lignes.map((l) => l.article_id);
@@ -60,7 +47,7 @@ export async function creerBesoin(formData: FormData) {
     const aReserver = Math.min(l.quantite, dispo);        // composant en stock → réservé
     const manque = l.quantite - aReserver;                // composant manquant → à commander
     if (aReserver > 0) {
-      reservations.push({ chantier_id, article_id: l.article_id, quantite: aReserver, date_prevue: date_besoin, statut: "reserve" });
+      reservations.push({ chantier_id, article_id: l.article_id, quantite: aReserver, date_prevue: date_besoin, statut: "reserve", composition_id });
     }
     if (manque > 0) {
       besoins.push({ chantier_id, article_id: l.article_id, quantite: manque, date_besoin, statut: "a_commander", cree_par: uid, notes });

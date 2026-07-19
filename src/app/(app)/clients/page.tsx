@@ -24,6 +24,12 @@ interface ArticleLite {
   designation: string;
 }
 
+interface CompositionLite {
+  id: string;
+  article_fini_id: string;
+  nom_variante: string;
+}
+
 export default async function ClientsPage() {
   const profil = await requireProfil();
   const voitCa = profil.role === "admin";
@@ -35,7 +41,7 @@ export default async function ClientsPage() {
     ? "id, client_id, libelle, date_prevue, statut, ca, cout_sous_traitance"
     : "id, client_id, libelle, date_prevue, statut";
 
-  const [{ data: clients }, { data: chantiers }, { data: lignes }, { data: articles }] =
+  const [{ data: clients }, { data: chantiers }, { data: lignes }, { data: articles }, { data: compositions }] =
     await Promise.all([
       supabase.from("clients").select("*").order("nom"),
       supabase.from("chantiers").select(champsChantier).order("date_prevue"),
@@ -45,12 +51,14 @@ export default async function ClientsPage() {
         .select("id, reference, designation")
         .eq("actif", true)
         .order("designation"),
+      supabase.from("compositions").select("id, article_fini_id, nom_variante").order("nom_variante"),
     ]);
 
   const listeClients = (clients as Client[] | null) ?? [];
   const listeChantiers = (chantiers as Chantier[] | null) ?? [];
   const listeLignes = (lignes as LigneChantier[] | null) ?? [];
   const listeArticles = (articles as ArticleLite[] | null) ?? [];
+  const listeCompositions = (compositions as CompositionLite[] | null) ?? [];
 
   return (
     <>
@@ -69,6 +77,7 @@ export default async function ClientsPage() {
           chantiers={listeChantiers}
           lignes={listeLignes}
           articles={listeArticles}
+          compositions={listeCompositions}
           voitCa={voitCa}
           creerClient={creerClient}
           modifierClient={modifierClient}

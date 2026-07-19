@@ -32,6 +32,7 @@ const ITEMS: Item[] = [
   { href: "/fournisseurs",    libelle: "Fournisseurs & prix",      roles: ADMIN, groupe: "Approvisionnement" },
 
   { href: "/clients",         libelle: "Clients & chantiers",      roles: TOUS,  groupe: "Chantiers" },
+  { href: "/a-preparer",      libelle: "À préparer",               roles: TOUS,  groupe: "Chantiers" },
   { href: "/sorties",         libelle: "Sorties & bons",           roles: TOUS,  groupe: "Chantiers" },
   { href: "/retours",         libelle: "Retours",                  roles: TOUS,  groupe: "Chantiers" },
   { href: "/tracabilite",     libelle: "Traçabilité",              roles: TOUS,  groupe: "Chantiers" },

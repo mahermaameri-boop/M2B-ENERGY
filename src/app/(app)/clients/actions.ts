@@ -93,18 +93,19 @@ export async function ajouterLigneChantier(formData: FormData) {
   const chantier_id = String(formData.get("chantier_id"));
   const article_id = String(formData.get("article_id"));
   const quantite = Math.max(1, Number(formData.get("quantite") || 1));
+  // Variante choisie (produit composé multi-variantes) ; null => 1re variante.
+  const composition_id = String(formData.get("composition_id") || "").trim() || null;
 
-  // composition_id optionnel = null pour l'instant (les variantes viennent plus tard).
   await supabase.from("chantier_lignes").insert({
     chantier_id,
     article_id,
-    composition_id: null,
+    composition_id,
     quantite,
   });
 
   const uid = (await supabase.auth.getUser()).data.user?.id ?? null;
-  const comps = await decomposer(supabase, article_id, quantite, null);
-  await genererAppro(supabase, chantier_id, comps, { cree_par: uid });
+  const comps = await decomposer(supabase, article_id, quantite, composition_id);
+  await genererAppro(supabase, chantier_id, comps, { cree_par: uid, composition_id });
 
   revalidatePath("/clients");
   revalidatePath("/a-commander");

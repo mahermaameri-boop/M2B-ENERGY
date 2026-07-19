@@ -18,7 +18,7 @@ export default async function ACommanderPage() {
   await requireProfil();
   const supabase = createClient();
 
-  const [{ data: besoinsData }, { data: stock }, { data: fournisseurs }, { data: chantiers }, { data: articles }] =
+  const [{ data: besoinsData }, { data: stock }, { data: fournisseurs }, { data: chantiers }, { data: articles }, { data: compositions }] =
     await Promise.all([
       supabase.from("besoins_appro")
         .select("id, chantier_id, article_id, quantite, date_besoin, statut, commande_id, articles(reference, designation), chantiers(libelle, clients(nom))")
@@ -27,11 +27,24 @@ export default async function ACommanderPage() {
       supabase.from("fournisseurs").select("id, nom").order("nom"),
       supabase.from("chantiers").select("id, libelle, clients(nom)").order("libelle"),
       supabase.from("articles").select("id, reference, designation, compose").eq("actif", true).order("designation"),
+      supabase.from("compositions").select("id, article_fini_id, nom_variante").order("nom_variante"),
     ]);
 
   const besoins = (besoinsData as unknown as Besoin[]) ?? [];
   const stockMap = new Map(((stock as any[]) ?? []).map((s) => [s.article_id, Number(s.stock)]));
   const chantiersIn = ((chantiers as any[]) ?? []).map((c) => ({ id: c.id, libelle: c.libelle, client_nom: c.clients?.nom ?? "—" }));
+  const articlesIn = (articles as any[]) ?? [];
+  const articleParId = new Map(articlesIn.map((a) => [a.id, a]));
+
+  // Variantes regroupées par produit fini ; on ne propose le choix que pour les
+  // produits ayant au moins deux variantes (une seule = décomposition implicite).
+  const variantesParFini = new Map<string, { id: string; nom_variante: string }[]>();
+  for (const c of ((compositions as any[]) ?? [])) {
+    const arr = variantesParFini.get(c.article_fini_id) ?? [];
+    arr.push({ id: c.id, nom_variante: c.nom_variante });
+    variantesParFini.set(c.article_fini_id, arr);
+  }
+  const finisMultiVariantes = [...variantesParFini.entries()].filter(([, v]) => v.length >= 2);
 
   // Regroupe les besoins « à commander » par chantier
   const aCommander = besoins.filter((b) => b.statut === "a_commander");
@@ -68,11 +81,29 @@ export default async function ACommanderPage() {
               <div className="sm:col-span-2">
                 <label className="etiquette">Matériel (article ou produit composé)</label>
                 <select name="article_id" required className="champ">
-                  {((articles as any[]) ?? []).map((a) => (
+                  {articlesIn.map((a) => (
                     <option key={a.id} value={a.id}>{a.reference} — {a.designation}{a.compose ? " (composé)" : ""}</option>
                   ))}
                 </select>
               </div>
+              {finisMultiVariantes.length > 0 && (
+                <div className="sm:col-span-2">
+                  <label className="etiquette">Variante (produits composés)</label>
+                  <select name="composition_id" className="champ" defaultValue="">
+                    <option value="">Automatique (Standard)</option>
+                    {finisMultiVariantes.map(([finiId, vars]) => {
+                      const art = articleParId.get(finiId);
+                      return (
+                        <optgroup key={finiId} label={art ? `${art.reference} — ${art.designation}` : "Produit composé"}>
+                          {vars.map((v) => (
+                            <option key={v.id} value={v.id}>{v.nom_variante}</option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="etiquette">Quantité</label>
                 <input name="quantite" type="number" min="1" defaultValue={1} className="champ" />

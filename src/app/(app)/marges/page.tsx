@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EnTetePage, Carte, CarteStat, Vide } from "@/components/ui";
 import { euro, pourcentage } from "@/lib/format";
+import { ExportMarges } from "./export-marges";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,16 @@ export default async function MargesPage() {
           valeur={euro(caTotal)}
           accent="bleu"
         />
+      </div>
+
+      <div className="mb-6">
+        <Carte titre="Export">
+          <p className="mb-3 text-sm text-gray-500">
+            Exporter les chantiers réalisés sur la période choisie (CA, coût matériel,
+            sous-traitance, marge).
+          </p>
+          <ExportMarges />
+        </Carte>
       </div>
 
       <div className="grid grid-cols-1 gap-6">

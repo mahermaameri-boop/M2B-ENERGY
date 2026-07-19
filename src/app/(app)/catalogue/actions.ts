@@ -44,6 +44,7 @@ export async function creerComposition(formData: FormData) {
   const supabase = createClient();
   await supabase.from("compositions").insert({
     article_fini_id: String(formData.get("article_fini_id")),
+    nom_variante: String(formData.get("nom_variante") || "").trim() || "Standard",
   });
   revalidatePath("/catalogue");
 }
