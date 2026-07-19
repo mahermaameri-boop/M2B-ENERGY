@@ -1,41 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ScanSeries } from "@/components/scan-series";
+import { nombre } from "@/lib/format";
 import { effectuerSortie } from "./actions";
 
-interface ArticleMin { id: string; reference: string; designation: string; serialise: boolean }
+interface Composant {
+  reservation_id: string;
+  article_id: string;
+  reference: string;
+  designation: string;
+  serialise: boolean;
+  quantite: number;
+}
 
 export function SortieForm({
   chantiers,
-  articles,
+  composantsParChantier,
   dateJour,
 }: {
   chantiers: { id: string; libelle: string; client_nom: string }[];
-  articles: ArticleMin[];
+  composantsParChantier: Record<string, Composant[]>;
   dateJour: string;
 }) {
-  const [series, setSeries] = useState<string[]>([]);
-  const [lignes, setLignes] = useState<{ article_id: string; quantite: number }[]>([]);
+  const [chantierId, setChantierId] = useState(chantiers[0]?.id ?? "");
+  // n° de série scannés, regroupés par article sérialisé
+  const [seriesParArticle, setSeriesParArticle] = useState<Record<string, string[]>>({});
 
-  const nonSerial = articles.filter((a) => !a.serialise);
+  const composants = composantsParChantier[chantierId] ?? [];
+  const serialises = composants.filter((c) => c.serialise);
+  const nonSerialises = composants.filter((c) => !c.serialise);
 
-  function ajouterLigne() {
-    setLignes((p) => [...p, { article_id: nonSerial[0]?.id ?? "", quantite: 1 }]);
+  function majSeries(articleId: string, s: string[]) {
+    setSeriesParArticle((p) => ({ ...p, [articleId]: s }));
   }
-  function majLigne(i: number, patch: Partial<{ article_id: string; quantite: number }>) {
-    setLignes((p) => p.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+
+  function changerChantier(id: string) {
+    setChantierId(id);
+    setSeriesParArticle({}); // le scan est propre à chaque chantier
   }
-  function retirerLigne(i: number) {
-    setLignes((p) => p.filter((_, idx) => idx !== i));
-  }
+
+  // Séries à plat pour le serveur (effectuerSortie retrouve l'article par n° de série).
+  const seriesAplat = useMemo(
+    () => serialises.flatMap((c) => seriesParArticle[c.article_id] ?? []),
+    [serialises, seriesParArticle],
+  );
+  // Lignes non sérialisées reprises automatiquement.
+  const lignes = useMemo(
+    () => nonSerialises.map((c) => ({ article_id: c.article_id, quantite: c.quantite })),
+    [nonSerialises],
+  );
+
+  // Chaque composant sérialisé doit avoir autant de n° de série que sa quantité.
+  const complet =
+    composants.length > 0 &&
+    serialises.every((c) => (seriesParArticle[c.article_id]?.length ?? 0) >= c.quantite);
 
   return (
     <form action={effectuerSortie} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="etiquette">Chantier / client</label>
-          <select name="chantier_id" required className="champ">
+          <label className="etiquette">Chantier planifié / client</label>
+          <select
+            name="chantier_id"
+            required
+            value={chantierId}
+            onChange={(e) => changerChantier(e.target.value)}
+            className="champ"
+          >
             {chantiers.map((c) => (
               <option key={c.id} value={c.id}>{c.libelle} — {c.client_nom}</option>
             ))}
@@ -48,48 +80,52 @@ export function SortieForm({
       </div>
 
       <div>
-        <label className="etiquette">Numéros de série (scan douchette ou saisie) — {series.length} article(s)</label>
-        <ScanSeries series={series} onChange={setSeries} autoFocus placeholder="Scanner le n° de série sur le matériel, puis Entrée" />
-      </div>
-
-      <div>
-        <div className="mb-1 flex items-center justify-between">
-          <label className="etiquette mb-0">Articles non sérialisés</label>
-          <button type="button" onClick={ajouterLigne} className="text-xs text-brand-600 hover:underline">+ Ajouter</button>
-        </div>
-        {lignes.length === 0 ? (
-          <p className="text-xs text-gray-400">Aucune ligne. Utilisez « Ajouter » pour sortir des accessoires, fenêtres, etc.</p>
+        <label className="etiquette">Composition attendue du chantier</label>
+        {composants.length === 0 ? (
+          <p className="text-xs text-gray-400">
+            Ce chantier n'a aucune composition. Ajoutez le matériel à poser dans Clients & chantiers.
+          </p>
         ) : (
-          <div className="space-y-2">
-            {lignes.map((l, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <select
-                  value={l.article_id}
-                  onChange={(e) => majLigne(i, { article_id: e.target.value })}
-                  className="champ flex-1"
-                >
-                  {nonSerial.map((a) => (
-                    <option key={a.id} value={a.id}>{a.reference} — {a.designation}</option>
-                  ))}
-                </select>
-                <input
-                  type="number" min="1" step="1" value={l.quantite}
-                  onChange={(e) => majLigne(i, { quantite: Number(e.target.value) })}
-                  className="champ w-24 text-right"
-                />
-                <button type="button" onClick={() => retirerLigne(i)} className="text-xs text-red-600 hover:underline">
-                  Retirer
-                </button>
+          <div className="space-y-3">
+            {serialises.map((c) => {
+              const scannes = seriesParArticle[c.article_id]?.length ?? 0;
+              return (
+                <div key={c.reservation_id} className="rounded border border-gray-200 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-sm">
+                      <span className="font-medium">{c.designation}</span>
+                      <span className="ml-1 text-gray-400">{c.reference}</span>
+                    </div>
+                    <span className={`text-xs ${scannes >= c.quantite ? "text-emerald-600" : "text-gray-500"}`}>
+                      {scannes}/{nombre(c.quantite)} saisis
+                    </span>
+                  </div>
+                  <ScanSeries
+                    series={seriesParArticle[c.article_id] ?? []}
+                    onChange={(s) => majSeries(c.article_id, s)}
+                    placeholder="Scanner le n° de série sur le matériel, puis Entrée"
+                  />
+                </div>
+              );
+            })}
+
+            {nonSerialises.map((c) => (
+              <div key={c.reservation_id} className="flex items-center justify-between rounded border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="text-sm">
+                  <span className="font-medium">{c.designation}</span>
+                  <span className="ml-1 text-gray-400">{c.reference}</span>
+                </div>
+                <span className="text-xs text-gray-500">{nombre(c.quantite)} — repris automatiquement</span>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <input type="hidden" name="series" value={JSON.stringify(series)} />
-      <input type="hidden" name="lignes" value={JSON.stringify(lignes.filter((l) => l.article_id && l.quantite > 0))} />
+      <input type="hidden" name="series" value={JSON.stringify(seriesAplat)} />
+      <input type="hidden" name="lignes" value={JSON.stringify(lignes)} />
 
-      <button type="submit" className="btn-primaire">
+      <button type="submit" disabled={!complet} className="btn-primaire disabled:cursor-not-allowed disabled:opacity-50">
         Générer le bon de sortie (PDF) et débiter le stock
       </button>
     </form>
